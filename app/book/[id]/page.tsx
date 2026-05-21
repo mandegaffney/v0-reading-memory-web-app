@@ -4,44 +4,60 @@ import { useState } from 'react';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
+import { use } from 'react';
 import { Header } from '@/components/header';
 import { Section, BookGrid } from '@/components/layout';
-import { BookCard, DuplicateWarning } from '@/components/book-card';
-import { 
-  getBookById, 
+import { BookCard } from '@/components/book-card';
+import { usePreferences } from '@/lib/preferences';
+import {
+  getBookById,
   getAuthorById,
   getBooksByAuthor,
-  getRecommendedBooks
+  getRecommendedBooks,
 } from '@/lib/data';
-import { ArrowLeft, ThumbsDown, Check, ShoppingCart, Calendar, BookOpen, AlertTriangle } from 'lucide-react';
+import {
+  ArrowLeft,
+  ThumbsDown,
+  Check,
+  ShoppingCart,
+  Calendar,
+  BookOpen,
+  AlertTriangle,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { use } from 'react';
 
 export default function BookPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
-  const book = getBookById(resolvedParams.id);
-  const [isDisliked, setIsDisliked] = useState(book?.isDisliked ?? false);
+  const { id } = use(params);
+  const { dislikedBookIds, dislikedAuthorIds, dislikeBook, unDislikeBook } = usePreferences();
   const [showPurchaseWarning, setShowPurchaseWarning] = useState(false);
 
-  if (!book) {
-    notFound();
-  }
+  const book = getBookById(id);
 
+  if (!book) notFound();
+
+  const isDisliked = dislikedBookIds.includes(book.id);
   const author = getAuthorById(book.authorId);
-  const otherAuthorBooks = getBooksByAuthor(book.authorId).filter(b => b.id !== book.id).slice(0, 4);
-  const recommendedBooks = getRecommendedBooks().filter(b => b.id !== book.id).slice(0, 4);
+  const otherAuthorBooks = getBooksByAuthor(book.authorId, dislikedBookIds)
+    .filter(b => b.id !== book.id)
+    .slice(0, 4);
+  const recommendedBooks = getRecommendedBooks(dislikedBookIds, dislikedAuthorIds)
+    .filter(b => b.id !== book.id)
+    .slice(0, 4);
 
   const handleDislike = () => {
-    setIsDisliked(!isDisliked);
+    if (isDisliked) unDislikeBook(book.id);
+    else dislikeBook(book.id);
   };
 
   const handlePurchase = () => {
     if (book.isOwned) {
       setShowPurchaseWarning(true);
     } else {
-      // In a real app, this would open Amazon or handle checkout
-      window.open(`https://www.amazon.com/s?k=${encodeURIComponent(book.title + ' ' + book.authorName + ' hardcover')}`, '_blank');
+      window.open(
+        `https://www.amazon.com/s?k=${encodeURIComponent(book.title + ' ' + book.authorName + ' hardcover')}`,
+        '_blank'
+      );
     }
   };
 
@@ -52,9 +68,8 @@ export default function BookPage({ params }: { params: Promise<{ id: string }> }
     <div className="min-h-screen">
       <Header />
 
-      {/* Back navigation */}
       <div className="max-w-6xl mx-auto px-6 pt-6">
-        <Link 
+        <Link
           href="/"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
@@ -104,8 +119,8 @@ export default function BookPage({ params }: { params: Promise<{ id: string }> }
             <h1 className="font-serif text-3xl md:text-4xl font-semibold tracking-tight leading-tight">
               {book.title}
             </h1>
-            
-            <Link 
+
+            <Link
               href={`/author/${book.authorId}`}
               className="text-lg text-muted-foreground hover:text-foreground transition-colors mt-2 block"
             >
@@ -114,37 +129,32 @@ export default function BookPage({ params }: { params: Promise<{ id: string }> }
 
             <div className="flex flex-wrap gap-2 mt-4">
               {book.genres.map((genre) => (
-                <span key={genre} className="text-xs text-muted-foreground border border-border rounded-sm px-2 py-1">
+                <span
+                  key={genre}
+                  className="text-xs text-muted-foreground border border-border rounded-sm px-2 py-1"
+                >
                   {genre}
                 </span>
               ))}
             </div>
 
-            <p className="text-foreground/80 mt-6 leading-relaxed max-w-xl">
-              {book.description}
-            </p>
+            <p className="text-foreground/80 mt-6 leading-relaxed max-w-xl">{book.description}</p>
 
             {book.whyRecommended && !book.isOwned && (
               <div className="mt-6 p-4 bg-secondary/50 rounded-sm border border-border">
-                <p className="text-sm text-muted-foreground italic">
-                  {book.whyRecommended}
-                </p>
+                <p className="text-sm text-muted-foreground italic">{book.whyRecommended}</p>
               </div>
             )}
 
-            {/* Duplicate Warning */}
+            {/* Duplicate / owned warning — shown before any purchase attempt */}
             {(book.isOwned || showPurchaseWarning) && (
-              <div className="mt-6">
-                <div className="flex items-start gap-3 bg-warning/10 border border-warning/30 rounded-sm p-4">
-                  <AlertTriangle className="w-5 h-5 text-warning-foreground shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-warning-foreground">
-                      You already own this book
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      This hardcover is already in your library. No need to purchase again.
-                    </p>
-                  </div>
+              <div className="mt-6 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-sm p-4">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-amber-800">You already own this book</p>
+                  <p className="text-sm text-amber-700 mt-1">
+                    This hardcover is already in your library. No need to purchase again.
+                  </p>
                 </div>
               </div>
             )}
@@ -152,18 +162,14 @@ export default function BookPage({ params }: { params: Promise<{ id: string }> }
             {/* Actions */}
             <div className="flex flex-wrap items-center gap-4 mt-8">
               {!book.isOwned && (
-                <Button 
-                  size="lg" 
-                  onClick={handlePurchase}
-                  className="font-medium"
-                >
+                <Button size="lg" onClick={handlePurchase} className="font-medium">
                   <ShoppingCart className="w-4 h-4 mr-2" />
                   {book.isPreOrder ? 'Pre-order' : 'Buy'} — ${book.price.toFixed(2)}
                 </Button>
               )}
-              
+
               <Button
-                variant={isDisliked ? "secondary" : "outline"}
+                variant={isDisliked ? 'secondary' : 'outline'}
                 size="lg"
                 onClick={handleDislike}
               >
@@ -182,22 +188,17 @@ export default function BookPage({ params }: { params: Promise<{ id: string }> }
             </div>
 
             <p className="text-sm text-muted-foreground mt-4">
-              {isUpcoming 
+              {isUpcoming
                 ? `Releases ${publishDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
-                : `Published ${publishDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
-              }
+                : `Published ${publishDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`}
             </p>
           </div>
         </div>
       </div>
 
       <main className="max-w-6xl mx-auto px-6">
-        {/* More from Author */}
         {otherAuthorBooks.length > 0 && (
-          <Section 
-            title={`More from ${book.authorName}`}
-            className="border-t border-border"
-          >
+          <Section title={`More from ${book.authorName}`} className="border-t border-border">
             <BookGrid columns={4}>
               {otherAuthorBooks.map((otherBook) => (
                 <BookCard key={otherBook.id} book={otherBook} />
@@ -206,12 +207,8 @@ export default function BookPage({ params }: { params: Promise<{ id: string }> }
           </Section>
         )}
 
-        {/* Recommendations */}
         {recommendedBooks.length > 0 && !book.isOwned && (
-          <Section 
-            title="You Might Also Like"
-            className="border-t border-border"
-          >
+          <Section title="You Might Also Like" className="border-t border-border">
             <BookGrid columns={4}>
               {recommendedBooks.map((recBook) => (
                 <BookCard key={recBook.id} book={recBook} showReason />
@@ -221,12 +218,9 @@ export default function BookPage({ params }: { params: Promise<{ id: string }> }
         )}
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-border mt-16">
         <div className="max-w-6xl mx-auto px-6 py-8">
-          <p className="text-sm text-muted-foreground">
-            Reading Memory — Track your hardcover collection
-          </p>
+          <p className="text-sm text-muted-foreground">Reading Memory — Track your hardcover collection</p>
         </div>
       </footer>
     </div>

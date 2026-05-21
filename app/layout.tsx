@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter, Cormorant_Garamond } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { PreferencesProvider } from '@/lib/preferences'
 import './globals.css'
 
 const inter = Inter({ 
@@ -49,7 +50,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${cormorant.variable} bg-background`}>
       <body className="font-sans antialiased min-h-screen">
-        {children}
+        <PreferencesProvider>
+          {children}
+        </PreferencesProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

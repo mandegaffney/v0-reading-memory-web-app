@@ -435,25 +435,47 @@ export const syncStatus: SyncStatus = {
   booksImported: 17,
 };
 
-// Helper functions
-export function getOwnedBooks(): Book[] {
-  return books.filter(b => b.isOwned && !b.isDisliked);
+// Helper functions — all accept optional dynamic disliked ID arrays from user preferences
+
+export function getOwnedBooks(dislikedBookIds: string[] = []): Book[] {
+  return books.filter(b => b.isOwned && !b.isDisliked && !dislikedBookIds.includes(b.id));
 }
 
-export function getUpcomingBooks(): Book[] {
-  return books.filter(b => b.isUpcoming && !b.isDisliked);
+export function getUpcomingBooks(dislikedBookIds: string[] = [], dislikedAuthorIds: string[] = []): Book[] {
+  return books.filter(b =>
+    b.isUpcoming &&
+    !b.isDisliked &&
+    !dislikedBookIds.includes(b.id) &&
+    !dislikedAuthorIds.includes(b.authorId)
+  );
 }
 
-export function getPreOrderBooks(): Book[] {
-  return books.filter(b => b.isPreOrder && !b.isDisliked);
+export function getPreOrderBooks(dislikedBookIds: string[] = [], dislikedAuthorIds: string[] = []): Book[] {
+  return books.filter(b =>
+    b.isPreOrder &&
+    !b.isDisliked &&
+    !dislikedBookIds.includes(b.id) &&
+    !dislikedAuthorIds.includes(b.authorId)
+  );
 }
 
-export function getRecommendedBooks(): Book[] {
-  return books.filter(b => !b.isOwned && !b.isDisliked && !b.isUpcoming && b.whyRecommended);
+export function getRecommendedBooks(dislikedBookIds: string[] = [], dislikedAuthorIds: string[] = []): Book[] {
+  return books.filter(b =>
+    !b.isOwned &&
+    !b.isDisliked &&
+    !b.isUpcoming &&
+    b.whyRecommended &&
+    !dislikedBookIds.includes(b.id) &&
+    !dislikedAuthorIds.includes(b.authorId)
+  );
 }
 
-export function getFavoriteAuthors(): Author[] {
-  return authors.filter(a => a.isFavorite && !a.isDisliked);
+export function getFavoriteAuthors(dislikedAuthorIds: string[] = []): Author[] {
+  return authors.filter(a => a.isFavorite && !a.isDisliked && !dislikedAuthorIds.includes(a.id));
+}
+
+export function getAllAuthors(dislikedAuthorIds: string[] = []): Author[] {
+  return authors.filter(a => !a.isDisliked && !dislikedAuthorIds.includes(a.id));
 }
 
 export function getAuthorById(id: string): Author | undefined {
@@ -464,18 +486,26 @@ export function getBookById(id: string): Book | undefined {
   return books.find(b => b.id === id);
 }
 
-export function getBooksByAuthor(authorId: string): Book[] {
-  return books.filter(b => b.authorId === authorId);
+export function getBooksByAuthor(authorId: string, dislikedBookIds: string[] = []): Book[] {
+  return books.filter(b => b.authorId === authorId && !dislikedBookIds.includes(b.id));
 }
 
-export function getRelatedAuthors(authorId: string): Author[] {
+export function getRelatedAuthors(authorId: string, dislikedAuthorIds: string[] = []): Author[] {
   const relatedIds = similarAuthors
     .filter(s => s.authorId === authorId || s.similarTo === authorId)
     .map(s => s.authorId === authorId ? s.similarTo : s.authorId);
-  return authors.filter(a => relatedIds.includes(a.id) && !a.isDisliked);
+  return authors.filter(a => relatedIds.includes(a.id) && !a.isDisliked && !dislikedAuthorIds.includes(a.id));
 }
 
 export function isBookDuplicate(bookId: string): boolean {
   const book = getBookById(bookId);
   return book?.isOwned ?? false;
+}
+
+export function getDislikedBooks(dislikedBookIds: string[]): Book[] {
+  return books.filter(b => b.isDisliked || dislikedBookIds.includes(b.id));
+}
+
+export function getDislikedAuthors(dislikedAuthorIds: string[]): Author[] {
+  return authors.filter(a => a.isDisliked || dislikedAuthorIds.includes(a.id));
 }
