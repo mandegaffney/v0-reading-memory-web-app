@@ -1,49 +1,48 @@
 'use client';
 
-import { useState } from 'react';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
+import { use } from 'react';
 import { Header } from '@/components/header';
 import { Section, BookGrid } from '@/components/layout';
 import { BookCard } from '@/components/book-card';
 import { AuthorCard } from '@/components/author-card';
-import { 
-  getAuthorById, 
-  getBooksByAuthor, 
+import { usePreferences } from '@/lib/preferences';
+import {
+  getAuthorById,
+  getBooksByAuthor,
   getRelatedAuthors,
-  authors 
 } from '@/lib/data';
 import { ArrowLeft, ThumbsDown, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { use } from 'react';
 
 export default function AuthorPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
-  const author = getAuthorById(resolvedParams.id);
-  const [isDisliked, setIsDisliked] = useState(author?.isDisliked ?? false);
+  const { id } = use(params);
+  const { dislikedBookIds, dislikedAuthorIds, dislikeAuthor, unDislikeAuthor } = usePreferences();
 
-  if (!author) {
-    notFound();
-  }
+  const author = getAuthorById(id);
 
-  const authorBooks = getBooksByAuthor(author.id);
+  if (!author) notFound();
+
+  const isDisliked = dislikedAuthorIds.includes(author.id);
+  const authorBooks = getBooksByAuthor(author.id, dislikedBookIds);
   const ownedBooks = authorBooks.filter(b => b.isOwned);
   const upcomingBooks = authorBooks.filter(b => b.isUpcoming || b.isPreOrder);
   const otherBooks = authorBooks.filter(b => !b.isOwned && !b.isUpcoming && !b.isPreOrder);
-  const relatedAuthors = getRelatedAuthors(author.id);
+  const relatedAuthors = getRelatedAuthors(author.id, dislikedAuthorIds);
 
   const handleDislike = () => {
-    setIsDisliked(!isDisliked);
+    if (isDisliked) unDislikeAuthor(author.id);
+    else dislikeAuthor(author.id);
   };
 
   return (
     <div className="min-h-screen">
       <Header />
 
-      {/* Back navigation */}
       <div className="max-w-6xl mx-auto px-6 pt-6">
-        <Link 
+        <Link
           href="/"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
@@ -72,11 +71,11 @@ export default function AuthorPage({ params }: { params: Promise<{ id: string }>
                   {author.name}
                 </h1>
                 <p className="text-muted-foreground mt-2">
-                  {author.booksOwned} books in your collection
+                  {author.booksOwned} {author.booksOwned === 1 ? 'book' : 'books'} in your collection
                 </p>
               </div>
               <Button
-                variant={isDisliked ? "secondary" : "outline"}
+                variant={isDisliked ? 'secondary' : 'outline'}
                 size="sm"
                 onClick={handleDislike}
                 className="shrink-0"
@@ -94,18 +93,15 @@ export default function AuthorPage({ params }: { params: Promise<{ id: string }>
                 )}
               </Button>
             </div>
-            <p className="text-foreground/80 mt-6 leading-relaxed max-w-2xl">
-              {author.bio}
-            </p>
+            <p className="text-foreground/80 mt-6 leading-relaxed max-w-2xl">{author.bio}</p>
           </div>
         </div>
       </div>
 
       <main className="max-w-6xl mx-auto px-6">
-        {/* Owned Books */}
         {ownedBooks.length > 0 && (
-          <Section 
-            title="In Your Library" 
+          <Section
+            title="In Your Library"
             subtitle={`${ownedBooks.length} ${ownedBooks.length === 1 ? 'book' : 'books'} owned`}
           >
             <BookGrid columns={4}>
@@ -116,10 +112,9 @@ export default function AuthorPage({ params }: { params: Promise<{ id: string }>
           </Section>
         )}
 
-        {/* Upcoming Books */}
         {upcomingBooks.length > 0 && (
-          <Section 
-            title="Upcoming Releases" 
+          <Section
+            title="Upcoming Releases"
             subtitle="New books from this author"
             className="border-t border-border"
           >
@@ -131,11 +126,10 @@ export default function AuthorPage({ params }: { params: Promise<{ id: string }>
           </Section>
         )}
 
-        {/* Other Books */}
         {otherBooks.length > 0 && (
-          <Section 
-            title="Other Books" 
-            subtitle="Available for purchase"
+          <Section
+            title="Also by This Author"
+            subtitle="Books not yet in your collection"
             className="border-t border-border"
           >
             <BookGrid columns={4}>
@@ -146,28 +140,24 @@ export default function AuthorPage({ params }: { params: Promise<{ id: string }>
           </Section>
         )}
 
-        {/* Related Authors */}
         {relatedAuthors.length > 0 && (
-          <Section 
-            title="Related Authors" 
-            subtitle="Similar to this author"
+          <Section
+            title="Similar Authors"
+            subtitle="Based on genre and style"
             className="border-t border-border"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {relatedAuthors.map((relatedAuthor) => (
-                <AuthorCard key={relatedAuthor.id} author={relatedAuthor} />
+              {relatedAuthors.map((related) => (
+                <AuthorCard key={related.id} author={related} />
               ))}
             </div>
           </Section>
         )}
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-border mt-16">
         <div className="max-w-6xl mx-auto px-6 py-8">
-          <p className="text-sm text-muted-foreground">
-            Reading Memory — Track your hardcover collection
-          </p>
+          <p className="text-sm text-muted-foreground">Reading Memory — Track your hardcover collection</p>
         </div>
       </footer>
     </div>
