@@ -1,33 +1,69 @@
 'use client';
 
+import { useMemo } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
 import { Header } from '@/components/header';
 import { Section, BookGrid, EmptyState } from '@/components/layout';
 import { BookCard } from '@/components/book-card';
-import { AuthorCard } from '@/components/author-card';
+import { DiscoveryCard, DiscoveryCardSkeleton } from '@/components/discovery-card';
+import { AuthorAvatar } from '@/components/author-avatar';
 import { usePreferences } from '@/lib/preferences';
-import {
-  getFavoriteAuthors,
-  getUpcomingBooks,
-  getPreOrderBooks,
-  getRecommendedBooks,
-  getOwnedBooks,
-} from '@/lib/data';
-import Link from 'next/link';
+import { useAuthorBooks } from '@/lib/use-author-books';
+import { useNewArrivals } from '@/lib/use-new-arrivals';
+import { useAuthorPhotos } from '@/lib/use-author-photos';
+import { getFavoriteAuthors, getOwnedBooks } from '@/lib/data';
 import { ArrowRight, BookOpen } from 'lucide-react';
 
+function normalizeTitle(t: string): string {
+  return t.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 export default function HomePage() {
-  const { dislikedBookIds, dislikedAuthorIds } = usePreferences();
+  const { dislikedBookIds, dislikedAuthorIds, importedBooks, importedAuthorNames } = usePreferences();
 
   const favoriteAuthors = getFavoriteAuthors(dislikedAuthorIds);
-  const upcomingBooks = getUpcomingBooks(dislikedBookIds, dislikedAuthorIds);
-  const preOrderBooks = getPreOrderBooks(dislikedBookIds, dislikedAuthorIds);
-  const recommendedBooks = getRecommendedBooks(dislikedBookIds, dislikedAuthorIds);
-  const ownedBooks = getOwnedBooks(dislikedBookIds);
+  const ownedBooks      = getOwnedBooks(dislikedBookIds);
 
-  const newAndUpcoming = [
-    ...upcomingBooks,
-    ...preOrderBooks.filter(b => !upcomingBooks.includes(b)),
-  ].slice(0, 4);
+  const hasImport    = importedBooks.length > 0;
+  const totalOwned   = hasImport ? importedBooks.length  : ownedBooks.length;
+  const totalAuthors = hasImport ? importedAuthorNames.length : favoriteAuthors.length;
+
+  // Fetch Open Library photos for imported authors (up to 6 shown)
+  const importedAuthorsSlice = useMemo(
+    () => (hasImport ? importedAuthorNames.slice(0, 6) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hasImport, importedAuthorNames.join(',')]
+  );
+  const { photos: importedPhotos, isLoading: photosLoading } = useAuthorPhotos(importedAuthorsSlice);
+
+  // Author names to query Open Library for book discovery
+  const authorNamesToQuery = useMemo<string[]>(
+    () => (hasImport ? importedAuthorNames : favoriteAuthors.map(a => a.name)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hasImport, importedAuthorNames.join(','), dislikedAuthorIds.join(',')]
+  );
+
+  // Union of all titles the user already owns
+  const ownedTitlesSet = useMemo<Set<string>>(() => {
+    const s = new Set<string>();
+    for (const b of ownedBooks)    s.add(normalizeTitle(b.title));
+    for (const b of importedBooks) s.add(normalizeTitle(b.title));
+    return s;
+  }, [ownedBooks, importedBooks]);
+
+  // Pre-orders — author-based Open Library query (separate loading state)
+  const { preOrders, isLoading: isPreOrdersLoading } = useAuthorBooks(authorNamesToQuery, ownedTitlesSet);
+
+  // "Books You Might Like" — new arrivals matched to the user's genres + authors
+  const {
+    arrivals,
+    isLoading: isArrivalsLoading,
+    error: arrivalsError,
+    updatedAt,
+  } = useNewArrivals(importedBooks, authorNamesToQuery, ownedTitlesSet);
+
+  const recentImported = importedBooks.slice(0, 10);
 
   return (
     <div className="min-h-screen">
@@ -43,25 +79,26 @@ export default function HomePage() {
               <span className="text-muted-foreground">book collection</span>
             </h1>
             <p className="text-lg text-muted-foreground mt-6 leading-relaxed">
-              {ownedBooks.length} hardcover {ownedBooks.length === 1 ? 'book' : 'books'} from{' '}
-              {favoriteAuthors.length} favorite {favoriteAuthors.length === 1 ? 'author' : 'authors'}.
+              {totalOwned} hardcover {totalOwned === 1 ? 'book' : 'books'} from{' '}
+              {totalAuthors} favorite {totalAuthors === 1 ? 'author' : 'authors'}.
               Never buy duplicates again.
             </p>
           </div>
 
           <div className="flex flex-wrap gap-8 mt-12">
-            <Stat value={ownedBooks.length} label="Books owned" />
-            <Stat value={favoriteAuthors.length} label="Favorite authors" />
-            <Stat value={upcomingBooks.length + preOrderBooks.length} label="Upcoming releases" />
+            <Stat value={totalOwned}        label="Books owned" />
+            <Stat value={totalAuthors}      label="Favorite authors" />
+            <Stat value={preOrders.length}  label="Pre-orders available" />
           </div>
         </div>
       </div>
 
       <main className="max-w-6xl mx-auto px-6">
-        {/* Favorite Authors */}
+
+        {/* ── Favorite Authors ──────────────────────────────── */}
         <Section
           title="Favorite Authors"
-          subtitle="Authors you read most"
+          subtitle={hasImport ? 'From your imported library — click to browse their books' : 'Authors you read most — click to browse their books'}
           action={
             <Link
               href="/authors"
@@ -71,10 +108,59 @@ export default function HomePage() {
             </Link>
           }
         >
-          {favoriteAuthors.length > 0 ? (
+          {hasImport ? (
+            importedAuthorNames.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {importedAuthorNames.slice(0, 6).map((name, i) => (
+                  <Link
+                    key={i}
+                    href={`/library?author=${encodeURIComponent(name)}`}
+                    className="group flex items-center gap-3 p-3 border border-border rounded-sm hover:bg-muted/50 hover:border-foreground/20 transition-colors"
+                  >
+                    <AuthorAvatar
+                      name={name}
+                      photoUrl={importedPhotos.get(name) ?? null}
+                      isLoading={photosLoading}
+                      size="sm"
+                    />
+                    <span className="font-serif font-medium text-sm truncate group-hover:text-accent transition-colors">
+                      {name}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title="No authors found"
+                description='Add an "Author" column to your CSV to populate this section.'
+              />
+            )
+          ) : favoriteAuthors.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {favoriteAuthors.slice(0, 6).map((author) => (
-                <AuthorCard key={author.id} author={author} />
+                <Link
+                  key={author.id}
+                  href={`/library?author=${encodeURIComponent(author.name)}`}
+                  className="group flex items-center gap-4 p-2 -mx-2 rounded-sm hover:bg-muted/40 transition-colors"
+                >
+                  <div className="relative w-16 h-16 rounded-full overflow-hidden bg-muted shrink-0">
+                    <Image
+                      src={author.imageUrl}
+                      alt={author.name}
+                      fill
+                      className="object-cover"
+                      sizes="64px"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-serif font-medium truncate group-hover:text-accent transition-colors">
+                      {author.name}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {author.booksOwned} {author.booksOwned === 1 ? 'book' : 'books'}
+                    </p>
+                  </div>
+                </Link>
               ))}
             </div>
           ) : (
@@ -85,40 +171,76 @@ export default function HomePage() {
           )}
         </Section>
 
-        {/* Upcoming & Pre-orders */}
-        {newAndUpcoming.length > 0 && (
+        {/* ── Books You Might Like ──────────────────────────── */}
+        <Section
+          title="Books You Might Like"
+          subtitle={
+            updatedAt
+              ? `Updated ${updatedAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} — new arrivals matched to your reading taste`
+              : 'New arrivals matched to your reading taste — buy at Ladybird Books'
+          }
+          className="border-t border-border"
+        >
+          {isArrivalsLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className={i >= 4 ? 'hidden md:block' : ''}>
+                  <DiscoveryCardSkeleton />
+                </div>
+              ))}
+            </div>
+          ) : arrivalsError ? (
+            <EmptyState
+              title="Couldn't load new arrivals"
+              description={arrivalsError}
+            />
+          ) : arrivals.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {arrivals.slice(0, 8).map((book, i) => (
+                <div key={book.key} className={i >= 4 ? 'hidden md:block' : ''}>
+                  <DiscoveryCard book={book} badge="New This Week" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title="Check back soon"
+              description="We'll match new Ladybird arrivals to your taste as they come in."
+            />
+          )}
+        </Section>
+
+        {/* ── Pre-Orders ────────────────────────────────────── */}
+        {(isPreOrdersLoading || preOrders.length > 0) && (
           <Section
-            title="New Releases"
-            subtitle="Coming soon from your favorite authors"
+            title="Pre-Orders from Authors You Read"
+            subtitle="Upcoming titles — reserve yours at Ladybird Books"
             className="border-t border-border"
           >
-            <BookGrid columns={4}>
-              {newAndUpcoming.map((book) => (
-                <BookCard key={book.id} book={book} showReason />
-              ))}
-            </BookGrid>
+            {isPreOrdersLoading ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className={i >= 4 ? 'hidden md:block' : ''}>
+                    <DiscoveryCardSkeleton />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {preOrders.slice(0, 8).map((book, i) => (
+                  <div key={book.key} className={i >= 4 ? 'hidden md:block' : ''}>
+                    <DiscoveryCard book={book} preOrder />
+                  </div>
+                ))}
+              </div>
+            )}
           </Section>
         )}
 
-        {/* Recommendations */}
-        {recommendedBooks.length > 0 && (
-          <Section
-            title="Recommended for You"
-            subtitle="Books you don't own yet, from authors you already read"
-            className="border-t border-border"
-          >
-            <BookGrid columns={4}>
-              {recommendedBooks.slice(0, 4).map((book) => (
-                <BookCard key={book.id} book={book} showReason />
-              ))}
-            </BookGrid>
-          </Section>
-        )}
-
-        {/* Recently Added */}
+        {/* ── Your Library preview ──────────────────────────── */}
         <Section
           title="Your Library"
-          subtitle="Recently purchased hardcovers"
+          subtitle={hasImport ? 'Recently imported hardcovers' : 'Recently purchased hardcovers'}
           className="border-t border-border"
           action={
             <Link
@@ -129,7 +251,48 @@ export default function HomePage() {
             </Link>
           }
         >
-          {ownedBooks.length > 0 ? (
+          {hasImport ? (
+            <div className="divide-y divide-border">
+              {recentImported.map((book, i) => (
+                <div key={i} className="flex items-center gap-4 py-3.5">
+                  <div className="w-8 h-10 bg-muted rounded-sm shrink-0 flex items-center justify-center">
+                    <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{book.title}</p>
+                    {book.author && (
+                      <p className="text-xs text-muted-foreground mt-0.5">{book.author}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-4 shrink-0">
+                    {book.unitPrice && (
+                      <span className="text-xs font-mono text-muted-foreground hidden sm:block">
+                        {book.unitPrice}
+                      </span>
+                    )}
+                    {book.dateOrdered && (
+                      <span className="text-xs text-muted-foreground hidden md:block">
+                        {book.dateOrdered}
+                      </span>
+                    )}
+                    {book.orderStatus && (
+                      <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full hidden sm:block">
+                        {book.orderStatus}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {importedBooks.length > 10 && (
+                <p className="text-xs text-muted-foreground pt-4">
+                  Showing 10 of {importedBooks.length} —{' '}
+                  <Link href="/library" className="underline underline-offset-4 hover:text-foreground transition-colors">
+                    view all
+                  </Link>
+                </p>
+              )}
+            </div>
+          ) : ownedBooks.length > 0 ? (
             <BookGrid columns={5}>
               {ownedBooks.slice(0, 10).map((book) => (
                 <BookCard key={book.id} book={book} showStatus={false} />
@@ -138,19 +301,20 @@ export default function HomePage() {
           ) : (
             <EmptyState
               title="No books yet"
-              description="Connect your Amazon account to import your purchase history."
+              description="Upload a CSV from your order history to get started."
               action={
                 <Link
                   href="/settings"
                   className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-sm text-sm font-medium hover:bg-primary/90 transition-colors"
                 >
                   <BookOpen className="w-4 h-4" />
-                  Import from Amazon
+                  Import CSV
                 </Link>
               }
             />
           )}
         </Section>
+
       </main>
 
       <footer className="border-t border-border mt-16">

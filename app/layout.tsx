@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter, Cormorant_Garamond } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { PreferencesProvider } from '@/lib/preferences'
+import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
 
 const inter = Inter({ 
@@ -52,6 +53,7 @@ export default function RootLayout({
       <body className="font-sans antialiased min-h-screen">
         <PreferencesProvider>
           {children}
+          <Toaster position="bottom-right" />
         </PreferencesProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

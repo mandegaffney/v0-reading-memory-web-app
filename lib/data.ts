@@ -26,12 +26,6 @@ export interface Book {
   whyRecommended?: string;
 }
 
-export interface SyncStatus {
-  lastSyncDate: string | null;
-  status: 'synced' | 'syncing' | 'error' | 'never';
-  booksImported: number;
-}
-
 // Mock Authors
 export const authors: Author[] = [
   {
@@ -421,53 +415,17 @@ export const books: Book[] = [
   },
 ];
 
-// Similar authors recommendations
+// Similar authors — used by author detail page
 export const similarAuthors: { authorId: string; similarTo: string; reason: string }[] = [
   { authorId: '4', similarTo: '1', reason: 'Both write immersive literary fiction with dark undertones' },
   { authorId: '6', similarTo: '3', reason: 'Contemporary literary fiction exploring relationships and identity' },
   { authorId: '2', similarTo: '1', reason: 'Masters of atmospheric, emotionally complex narratives' },
 ];
 
-// Sync status
-export const syncStatus: SyncStatus = {
-  lastSyncDate: '2026-05-18T14:30:00Z',
-  status: 'synced',
-  booksImported: 17,
-};
-
 // Helper functions — all accept optional dynamic disliked ID arrays from user preferences
 
 export function getOwnedBooks(dislikedBookIds: string[] = []): Book[] {
   return books.filter(b => b.isOwned && !b.isDisliked && !dislikedBookIds.includes(b.id));
-}
-
-export function getUpcomingBooks(dislikedBookIds: string[] = [], dislikedAuthorIds: string[] = []): Book[] {
-  return books.filter(b =>
-    b.isUpcoming &&
-    !b.isDisliked &&
-    !dislikedBookIds.includes(b.id) &&
-    !dislikedAuthorIds.includes(b.authorId)
-  );
-}
-
-export function getPreOrderBooks(dislikedBookIds: string[] = [], dislikedAuthorIds: string[] = []): Book[] {
-  return books.filter(b =>
-    b.isPreOrder &&
-    !b.isDisliked &&
-    !dislikedBookIds.includes(b.id) &&
-    !dislikedAuthorIds.includes(b.authorId)
-  );
-}
-
-export function getRecommendedBooks(dislikedBookIds: string[] = [], dislikedAuthorIds: string[] = []): Book[] {
-  return books.filter(b =>
-    !b.isOwned &&
-    !b.isDisliked &&
-    !b.isUpcoming &&
-    b.whyRecommended &&
-    !dislikedBookIds.includes(b.id) &&
-    !dislikedAuthorIds.includes(b.authorId)
-  );
 }
 
 export function getFavoriteAuthors(dislikedAuthorIds: string[] = []): Author[] {

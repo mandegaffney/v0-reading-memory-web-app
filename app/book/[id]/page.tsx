@@ -9,11 +9,11 @@ import { Header } from '@/components/header';
 import { Section, BookGrid } from '@/components/layout';
 import { BookCard } from '@/components/book-card';
 import { usePreferences } from '@/lib/preferences';
+import { ladybirdSearchUrl } from '@/lib/use-author-books';
 import {
   getBookById,
   getAuthorById,
   getBooksByAuthor,
-  getRecommendedBooks,
 } from '@/lib/data';
 import {
   ArrowLeft,
@@ -29,7 +29,7 @@ import { Badge } from '@/components/ui/badge';
 
 export default function BookPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { dislikedBookIds, dislikedAuthorIds, dislikeBook, unDislikeBook } = usePreferences();
+  const { dislikedBookIds, dislikeBook, unDislikeBook } = usePreferences();
   const [showPurchaseWarning, setShowPurchaseWarning] = useState(false);
 
   const book = getBookById(id);
@@ -39,9 +39,6 @@ export default function BookPage({ params }: { params: Promise<{ id: string }> }
   const isDisliked = dislikedBookIds.includes(book.id);
   const author = getAuthorById(book.authorId);
   const otherAuthorBooks = getBooksByAuthor(book.authorId, dislikedBookIds)
-    .filter(b => b.id !== book.id)
-    .slice(0, 4);
-  const recommendedBooks = getRecommendedBooks(dislikedBookIds, dislikedAuthorIds)
     .filter(b => b.id !== book.id)
     .slice(0, 4);
 
@@ -54,10 +51,7 @@ export default function BookPage({ params }: { params: Promise<{ id: string }> }
     if (book.isOwned) {
       setShowPurchaseWarning(true);
     } else {
-      window.open(
-        `https://www.amazon.com/s?k=${encodeURIComponent(book.title + ' ' + book.authorName + ' hardcover')}`,
-        '_blank'
-      );
+      window.open(ladybirdSearchUrl(book.title, book.authorName), '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -207,15 +201,6 @@ export default function BookPage({ params }: { params: Promise<{ id: string }> }
           </Section>
         )}
 
-        {recommendedBooks.length > 0 && !book.isOwned && (
-          <Section title="You Might Also Like" className="border-t border-border">
-            <BookGrid columns={4}>
-              {recommendedBooks.map((recBook) => (
-                <BookCard key={recBook.id} book={recBook} showReason />
-              ))}
-            </BookGrid>
-          </Section>
-        )}
       </main>
 
       <footer className="border-t border-border mt-16">

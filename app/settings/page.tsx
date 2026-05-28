@@ -1,97 +1,206 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import Link from 'next/link';
+import Papa from 'papaparse';
+import { toast } from 'sonner';
 import { Header } from '@/components/header';
 import { PageHeader } from '@/components/layout';
-import { syncStatus } from '@/lib/data';
-import { 
-  ArrowLeft, 
-  RefreshCw, 
-  CheckCircle2, 
-  AlertCircle, 
-  Clock,
-  ShoppingBag,
-  ExternalLink
+import { usePreferences } from '@/lib/preferences';
+import type { ImportedBook } from '@/lib/preferences';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  ArrowLeft,
+  Upload,
+  CheckCircle2,
+  BookOpen,
+  Trash2,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
+interface CsvRow {
+  'Product Name'?: string;
+  'Author'?: string;
+  'Genre'?: string;
+  'Order Date'?: string;
+  'Unit Price'?: string;
+  'Total Amount'?: string;
+  'Order Status'?: string;
+  'Order ID'?: string;
+  [key: string]: string | undefined;
+}
+
 export default function SettingsPage() {
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [status, setStatus] = useState(syncStatus);
+  const { importedBooks, importedAuthorNames, replaceImportedBooks, clearImportedBooks } =
+    usePreferences();
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    setStatus(prev => ({ ...prev, status: 'syncing' }));
-    
-    // Simulate sync
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setStatus({
-      lastSyncDate: new Date().toISOString(),
-      status: 'synced',
-      booksImported: status.booksImported,
-    });
-    setIsRefreshing(false);
-  };
+  const [isDragging, setIsDragging]     = useState(false);
+  const [isParsing, setIsParsing]       = useState(false);
+  const [parseError, setParseError]     = useState<string | null>(null);
+  // Confirmation dialog state — holds the file waiting to be confirmed
+  const [pendingFile, setPendingFile]   = useState<File | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Never';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'long', 
-      day: 'numeric', 
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit'
-    });
-  };
+  // ── Core parse + replace ─────────────────────────────────────────────────
+  // Called only after the user confirms (or immediately if the library is empty).
+  // On any parse failure the existing data is left intact.
+  const runParse = useCallback(
+    (file: File) => {
+      setIsParsing(true);
+      setParseError(null);
 
-  const getStatusInfo = () => {
-    switch (status.status) {
-      case 'synced':
-        return {
-          icon: CheckCircle2,
-          label: 'Connected & Synced',
-          color: 'text-accent',
-          bgColor: 'bg-accent/10',
-        };
-      case 'syncing':
-        return {
-          icon: RefreshCw,
-          label: 'Syncing...',
-          color: 'text-muted-foreground',
-          bgColor: 'bg-muted',
-        };
-      case 'error':
-        return {
-          icon: AlertCircle,
-          label: 'Sync Error',
-          color: 'text-destructive',
-          bgColor: 'bg-destructive/10',
-        };
-      case 'never':
-      default:
-        return {
-          icon: Clock,
-          label: 'Not Connected',
-          color: 'text-muted-foreground',
-          bgColor: 'bg-muted',
-        };
-    }
-  };
+      Papa.parse<CsvRow>(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete(results) {
+          setIsParsing(false);
+          if (inputRef.current) inputRef.current.value = '';
 
-  const statusInfo = getStatusInfo();
-  const StatusIcon = statusInfo.icon;
+          // Parse failure — abort; do not touch existing data
+          if (results.errors.length && !results.data.length) {
+            setParseError('Could not read the file. Make sure it is a valid CSV.');
+            return;
+          }
+
+          // Map CSV rows → ImportedBook (all eight fields)
+          const books: ImportedBook[] = results.data
+            .map(row => ({
+              title:       (row['Product Name']  ?? '').trim(),
+              author:      (row['Author']        ?? '').trim(),
+              genre:       (row['Genre']         ?? '').trim(),
+              dateOrdered: (row['Order Date']    ?? '').trim(),
+              unitPrice:   (row['Unit Price']    ?? '').trim(),
+              totalAmount: (row['Total Amount']  ?? '').trim(),
+              orderStatus: (row['Order Status']  ?? '').trim(),
+              orderId:     (row['Order ID']      ?? '').trim(),
+            }))
+            .filter(b => b.title.length > 0);
+
+          // Empty result — abort; do not touch existing data
+          if (!books.length) {
+            setParseError(
+              'No books found. Make sure your CSV has a "Product Name" column with values.'
+            );
+            return;
+          }
+
+          // Replace the entire in-memory library.
+          // user-configured state (dislikedBookIds, dislikedAuthorIds) is preserved automatically —
+          // replaceImportedBooks only touches importedBooks and importedAuthorNames.
+          const { newBooks, newAuthors } = replaceImportedBooks(books);
+
+          toast.success(
+            `Library updated — ${newBooks} ${newBooks === 1 ? 'book' : 'books'} and ` +
+            `${newAuthors} ${newAuthors === 1 ? 'author' : 'authors'} loaded.`
+          );
+        },
+        error(err) {
+          // Parse error — abort; do not touch existing data
+          setIsParsing(false);
+          setParseError(err.message ?? 'Unknown parse error.');
+          if (inputRef.current) inputRef.current.value = '';
+        },
+      });
+    },
+    [replaceImportedBooks]
+  );
+
+  // ── File intake ──────────────────────────────────────────────────────────
+  // If a library already exists, gate behind a confirmation dialog.
+  // If the library is empty, parse immediately.
+  const processFile = useCallback(
+    (file: File) => {
+      if (!file.name.endsWith('.csv')) {
+        setParseError('Please select a .csv file.');
+        return;
+      }
+      setParseError(null);
+
+      if (importedBooks.length > 0) {
+        // Hold the file and show the confirmation dialog
+        setPendingFile(file);
+      } else {
+        runParse(file);
+      }
+    },
+    [importedBooks.length, runParse]
+  );
+
+  // ── Confirmation handlers ────────────────────────────────────────────────
+  const handleConfirm = useCallback(() => {
+    if (!pendingFile) return;
+    const file = pendingFile;
+    setPendingFile(null);   // close dialog
+    runParse(file);
+  }, [pendingFile, runParse]);
+
+  const handleCancel = useCallback(() => {
+    setPendingFile(null);
+    if (inputRef.current) inputRef.current.value = '';
+  }, []);
+
+  // ── Drag / file-input handlers ───────────────────────────────────────────
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+      const file = e.dataTransfer.files[0];
+      if (file) processFile(file);
+    },
+    [processFile]
+  );
+
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) processFile(file);
+    },
+    [processFile]
+  );
+
+  const hasLibrary = importedBooks.length > 0;
 
   return (
     <div className="min-h-screen">
       <Header />
 
-      {/* Back navigation */}
+      {/* ── Confirmation dialog ───────────────────────────────────────────── */}
+      <Dialog open={!!pendingFile} onOpenChange={open => { if (!open) handleCancel(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Replace your library?</DialogTitle>
+            <DialogDescription>
+              Importing a new CSV will replace your current library (
+              {importedBooks.length} {importedBooks.length === 1 ? 'book' : 'books'}
+              {importedAuthorNames.length > 0
+                ? `, ${importedAuthorNames.length} ${importedAuthorNames.length === 1 ? 'author' : 'authors'}`
+                : ''}
+              ) with the new file's data. Your Hidden books and authors will not be affected.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={handleCancel}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirm} disabled={isParsing}>
+              {isParsing ? 'Importing…' : 'Import & Replace'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="max-w-6xl mx-auto px-6 pt-6">
-        <Link 
+        <Link
           href="/"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
@@ -100,117 +209,172 @@ export default function SettingsPage() {
         </Link>
       </div>
 
-      <PageHeader 
-        title="Import Settings"
-        subtitle="Connect your Amazon account to automatically import your hardcover purchase history."
+      <PageHeader
+        title="Import CSV"
+        subtitle="Upload a CSV file to replace your library and author list with fresh data."
       />
 
       <main className="max-w-6xl mx-auto px-6 py-12">
-        <div className="max-w-2xl">
-          {/* Amazon Connection Card */}
-          <div className="border border-border rounded-sm bg-card p-6 md:p-8">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-sm bg-[#FF9900] flex items-center justify-center shrink-0">
-                <ShoppingBag className="w-6 h-6 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h2 className="font-serif text-xl font-semibold">Amazon Purchase History</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  We automatically filter for hardcover books only.
-                </p>
-              </div>
+        <div className="max-w-2xl space-y-10">
+
+          {/* ── Drop zone ─────────────────────────────────────────────────── */}
+          <section>
+            <div
+              onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={handleDrop}
+              onClick={() => !isParsing && inputRef.current?.click()}
+              className={cn(
+                'border-2 border-dashed rounded-sm p-12 text-center transition-colors select-none',
+                isParsing ? 'opacity-60 cursor-wait' : 'cursor-pointer',
+                isDragging
+                  ? 'border-foreground bg-muted/60'
+                  : 'border-border hover:border-foreground/40 hover:bg-muted/30'
+              )}
+            >
+              <input
+                ref={inputRef}
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+              {hasLibrary ? (
+                <RefreshCw className="w-8 h-8 text-muted-foreground mx-auto mb-4" />
+              ) : (
+                <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-4" />
+              )}
+              <p className="font-medium">
+                {isParsing
+                  ? 'Reading file…'
+                  : hasLibrary
+                  ? 'Drop a new CSV to replace your library, or click to browse'
+                  : 'Drop your CSV here, or click to browse'}
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Columns used:{' '}
+                <span className="font-mono text-xs">
+                  Product Name · Author · Genre · Order Date · Unit Price · Total Amount · Order Status · Order ID
+                </span>
+              </p>
             </div>
 
-            {/* Status Badge */}
-            <div className={cn(
-              "inline-flex items-center gap-2 px-3 py-1.5 rounded-sm mt-6",
-              statusInfo.bgColor
-            )}>
-              <StatusIcon className={cn("w-4 h-4", statusInfo.color, isRefreshing && "animate-spin")} />
-              <span className={cn("text-sm font-medium", statusInfo.color)}>
-                {statusInfo.label}
-              </span>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-2 gap-6 mt-8 pt-6 border-t border-border">
-              <div>
-                <p className="text-sm text-muted-foreground">Last synced</p>
-                <p className="font-medium mt-1">{formatDate(status.lastSyncDate)}</p>
+            {/* Inline error — shown without replacing existing data */}
+            {parseError && (
+              <div className="flex items-start gap-3 mt-4 p-4 bg-destructive/5 border border-destructive/20 rounded-sm">
+                <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                <p className="text-sm text-destructive">{parseError}</p>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Books imported</p>
-                <p className="font-medium mt-1">{status.booksImported} hardcovers</p>
-              </div>
-            </div>
+            )}
+          </section>
 
-            {/* Actions */}
-            <div className="flex flex-wrap gap-3 mt-8">
-              <Button 
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="font-medium"
-              >
-                <RefreshCw className={cn("w-4 h-4 mr-2", isRefreshing && "animate-spin")} />
-                {isRefreshing ? 'Syncing...' : 'Refresh Now'}
-              </Button>
-              <Button variant="outline" asChild>
-                <a 
-                  href="https://www.amazon.com/gp/your-account/order-history" 
-                  target="_blank"
-                  rel="noopener noreferrer"
+          {/* ── Current import status ─────────────────────────────────────── */}
+          {hasLibrary && (
+            <section className="border border-border rounded-sm p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">
+                      {importedBooks.length}{' '}
+                      {importedBooks.length === 1 ? 'book' : 'books'} loaded
+                    </p>
+                    {importedAuthorNames.length > 0 && (
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        {importedAuthorNames.length}{' '}
+                        {importedAuthorNames.length === 1 ? 'author' : 'authors'} in your collection
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-destructive shrink-0"
+                  onClick={() => {
+                    clearImportedBooks();
+                    toast.success('Library cleared.');
+                  }}
                 >
-                  View on Amazon
-                  <ExternalLink className="w-4 h-4 ml-2" />
-                </a>
-              </Button>
-            </div>
-          </div>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Clear
+                </Button>
+              </div>
 
-          {/* How it Works */}
-          <div className="mt-12">
-            <h3 className="font-serif text-lg font-semibold mb-6">How it works</h3>
-            <div className="space-y-6">
-              <Step 
-                number={1}
-                title="Connect your Amazon account"
-                description="Securely link your Amazon account to Reading Memory."
-              />
-              <Step 
-                number={2}
-                title="Automatic import"
-                description="We scan your order history and import all hardcover book purchases."
-              />
-              <Step 
-                number={3}
-                title="Stay up to date"
-                description="New purchases are automatically added to your library."
-              />
-            </div>
-          </div>
+              {/* Book preview */}
+              <div className="mt-6 pt-6 border-t border-border space-y-2">
+                {importedBooks.slice(0, 8).map((book, i) => (
+                  <div key={i} className="flex items-center gap-3 text-sm">
+                    <BookOpen className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <span className="truncate flex-1">{book.title}</span>
+                    {book.author && (
+                      <span className="text-muted-foreground shrink-0 truncate max-w-[140px]">
+                        {book.author}
+                      </span>
+                    )}
+                    {book.unitPrice && (
+                      <span className="text-muted-foreground shrink-0 font-mono text-xs">
+                        {book.unitPrice}
+                      </span>
+                    )}
+                  </div>
+                ))}
+                {importedBooks.length > 8 && (
+                  <p className="text-xs text-muted-foreground pl-6">
+                    +{importedBooks.length - 8} more —{' '}
+                    <Link
+                      href="/library"
+                      className="underline underline-offset-4 hover:text-foreground transition-colors"
+                    >
+                      view all in Library
+                    </Link>
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
 
-          {/* FAQ */}
-          <div className="mt-12 pt-12 border-t border-border">
-            <h3 className="font-serif text-lg font-semibold mb-6">Questions</h3>
-            <div className="space-y-6">
-              <FAQ 
-                question="What about Kindle books?"
-                answer="Reading Memory focuses exclusively on physical hardcover books. Kindle and paperback purchases are not imported."
-              />
-              <FAQ 
-                question="How often does it sync?"
-                answer="Your library automatically syncs once per day. You can also manually refresh anytime."
-              />
-              <FAQ 
-                question="Is my Amazon data secure?"
-                answer="Yes. We only access your book purchase history and never store your Amazon credentials."
-              />
+          {/* ── Expected columns ──────────────────────────────────────────── */}
+          <section className="border-t border-border pt-10">
+            <h3 className="font-serif text-lg font-semibold mb-4">Expected CSV format</h3>
+            <div className="overflow-x-auto">
+              <table className="text-sm w-full border-collapse">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-2 pr-6 font-medium text-muted-foreground">Column</th>
+                    <th className="text-left py-2 pr-6 font-medium text-muted-foreground">Maps to</th>
+                    <th className="text-left py-2 font-medium text-muted-foreground">Required</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {[
+                    { col: 'Product Name', maps: 'title',       req: 'Yes' },
+                    { col: 'Author',       maps: 'author',      req: 'No'  },
+                    { col: 'Genre',        maps: 'genre',       req: 'No'  },
+                    { col: 'Order Date',   maps: 'dateOrdered', req: 'No'  },
+                    { col: 'Unit Price',   maps: 'unitPrice',   req: 'No'  },
+                    { col: 'Total Amount', maps: 'totalAmount', req: 'No'  },
+                    { col: 'Order Status', maps: 'orderStatus', req: 'No'  },
+                    { col: 'Order ID',     maps: 'orderId',     req: 'No'  },
+                  ].map(({ col, maps, req }) => (
+                    <tr key={col}>
+                      <td className="py-2.5 pr-6 font-mono text-xs">{col}</td>
+                      <td className="py-2.5 pr-6 text-muted-foreground">{maps}</td>
+                      <td className="py-2.5 text-muted-foreground">{req}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
+            <p className="text-sm text-muted-foreground mt-4">
+              Extra columns are ignored. Rows without a title are skipped. Each upload
+              replaces the current library — your Hidden list is never affected.
+            </p>
+          </section>
+
         </div>
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-border mt-16">
         <div className="max-w-6xl mx-auto px-6 py-8">
           <p className="text-sm text-muted-foreground">
@@ -218,29 +382,6 @@ export default function SettingsPage() {
           </p>
         </div>
       </footer>
-    </div>
-  );
-}
-
-function Step({ number, title, description }: { number: number; title: string; description: string }) {
-  return (
-    <div className="flex gap-4">
-      <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0 text-sm font-medium">
-        {number}
-      </div>
-      <div>
-        <h4 className="font-medium">{title}</h4>
-        <p className="text-sm text-muted-foreground mt-1">{description}</p>
-      </div>
-    </div>
-  );
-}
-
-function FAQ({ question, answer }: { question: string; answer: string }) {
-  return (
-    <div>
-      <h4 className="font-medium">{question}</h4>
-      <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{answer}</p>
     </div>
   );
 }
