@@ -20,20 +20,50 @@ function normalizeTitle(t: string): string {
 }
 
 export default function HomePage() {
-  const { dislikedBookIds, dislikedAuthorIds, importedBooks, importedAuthorNames } = usePreferences();
+  const { dislikedBookIds, dislikedAuthorIds, importedBooks, importedAuthorNames, importedFavoriteAuthors, isLoading, loadError } = usePreferences();
+
+  // ── Initial API load states ──────────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <div className="min-h-screen">
+        <Header />
+        <div className="max-w-6xl mx-auto px-6 py-32 text-center">
+          <p className="text-muted-foreground text-sm animate-pulse">Loading your library…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen">
+        <Header />
+        <div className="max-w-6xl mx-auto px-6 py-32 text-center">
+          <p className="text-destructive text-sm">{loadError}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 text-sm underline underline-offset-4 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const favoriteAuthors = getFavoriteAuthors(dislikedAuthorIds);
   const ownedBooks      = getOwnedBooks(dislikedBookIds);
 
   const hasImport    = importedBooks.length > 0;
   const totalOwned   = hasImport ? importedBooks.length  : ownedBooks.length;
-  const totalAuthors = hasImport ? importedAuthorNames.length : favoriteAuthors.length;
+  // Stat reflects the qualified favorites list, not raw unique-author count
+  const totalAuthors = hasImport ? importedFavoriteAuthors.length : favoriteAuthors.length;
 
-  // Fetch Open Library photos for imported authors (up to 6 shown)
+  // Fetch Open Library photos for the top 6 favorite authors shown on the home page
   const importedAuthorsSlice = useMemo(
-    () => (hasImport ? importedAuthorNames.slice(0, 6) : []),
+    () => (hasImport ? importedFavoriteAuthors.slice(0, 6).map(a => a.name) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hasImport, importedAuthorNames.join(',')]
+    [hasImport, importedFavoriteAuthors.map(a => a.name).join(',')]
   );
   const { photos: importedPhotos, isLoading: photosLoading } = useAuthorPhotos(importedAuthorsSlice);
 
@@ -98,7 +128,7 @@ export default function HomePage() {
         {/* ── Favorite Authors ──────────────────────────────── */}
         <Section
           title="Favorite Authors"
-          subtitle={hasImport ? 'From your imported library — click to browse their books' : 'Authors you read most — click to browse their books'}
+          subtitle={hasImport ? 'Authors with 2+ books in your library — click to browse' : 'Authors you read most — click to browse their books'}
           action={
             <Link
               href="/authors"
@@ -109,30 +139,35 @@ export default function HomePage() {
           }
         >
           {hasImport ? (
-            importedAuthorNames.length > 0 ? (
+            importedFavoriteAuthors.length >= 2 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {importedAuthorNames.slice(0, 6).map((name, i) => (
+                {importedFavoriteAuthors.slice(0, 6).map((author, i) => (
                   <Link
                     key={i}
-                    href={`/library?author=${encodeURIComponent(name)}`}
+                    href={`/library?author=${encodeURIComponent(author.name)}`}
                     className="group flex items-center gap-3 p-3 border border-border rounded-sm hover:bg-muted/50 hover:border-foreground/20 transition-colors"
                   >
                     <AuthorAvatar
-                      name={name}
-                      photoUrl={importedPhotos.get(name) ?? null}
+                      name={author.name}
+                      photoUrl={importedPhotos.get(author.name) ?? null}
                       isLoading={photosLoading}
                       size="sm"
                     />
-                    <span className="font-serif font-medium text-sm truncate group-hover:text-accent transition-colors">
-                      {name}
-                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-serif font-medium text-sm truncate group-hover:text-accent transition-colors">
+                        {author.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {author.bookCount} {author.bookCount === 1 ? 'book' : 'books'}
+                      </p>
+                    </div>
                   </Link>
                 ))}
               </div>
             ) : (
               <EmptyState
-                title="No authors found"
-                description='Add an "Author" column to your CSV to populate this section.'
+                title="No favorite authors yet"
+                description="Read more books by the same author to build your favorites list."
               />
             )
           ) : favoriteAuthors.length > 0 ? (

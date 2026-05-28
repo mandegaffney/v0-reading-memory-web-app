@@ -1,48 +1,86 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+/** Minimum books by the same author required to appear in Favorite Authors. */
+export const MIN_BOOKS_FOR_FAVORITE_AUTHOR = 2;
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface ImportedBook {
-  title: string;
-  author: string;
-  genre: string;
+  id?:         string;   // present when returned from the API
+  title:       string;
+  author:      string;
+  genre:       string;
   dateOrdered: string;
-  unitPrice: string;
+  unitPrice:   string;
   totalAmount: string;
   orderStatus: string;
-  orderId: string;
+  orderId:     string;
+  source?:     'csv' | 'manual';
+}
+
+/** An author who qualifies for the Favorite Authors list (≥ MIN_BOOKS_FOR_FAVORITE_AUTHOR). */
+export interface ImportedFavoriteAuthor {
+  id:        string;
+  name:      string;
+  bookCount: number;
 }
 
 interface Preferences {
-  // Persisted to localStorage
-  dislikedBookIds: string[];
+  // ── Persisted to localStorage ────────────────────────────────────────────
+  dislikedBookIds:   string[];
   dislikedAuthorIds: string[];
-  dislikeBook: (id: string) => void;
-  unDislikeBook: (id: string) => void;
-  dislikeAuthor: (id: string) => void;
-  unDislikeAuthor: (id: string) => void;
-  isBookDisliked: (id: string) => boolean;
-  isAuthorDisliked: (id: string) => boolean;
+  dislikeBook:       (id: string) => void;
+  unDislikeBook:     (id: string) => void;
+  dislikeAuthor:     (id: string) => void;
+  unDislikeAuthor:   (id: string) => void;
+  isBookDisliked:    (id: string) => boolean;
+  isAuthorDisliked:  (id: string) => boolean;
 
-  // In-memory only (session-scoped, not persisted)
-  importedBooks: ImportedBook[];
-  importedAuthorNames: string[];
-  // Replaces the entire in-memory library with the new CSV data
-  replaceImportedBooks: (books: ImportedBook[]) => { newBooks: number; newAuthors: number };
-  clearImportedBooks: () => void;
+  // ── API-backed library state ──────────────────────────────────────────────
+  /** True while the initial GET /api/library + GET /api/authors fetch is in flight. */
+  isLoading:   boolean;
+  /** Non-null if the initial fetch fails entirely. */
+  loadError:   string | null;
+
+  importedBooks:           ImportedBook[];
+  /** All unique author names from the library (used for discovery queries). */
+  importedAuthorNames:     string[];
+  /** Authors with ≥ MIN_BOOKS_FOR_FAVORITE_AUTHOR books, sorted by count desc. */
+  importedFavoriteAuthors: ImportedFavoriteAuthor[];
+
+  /**
+   * POST /api/import — bulk-replace CSV books.
+   * Resolves with { newBooks, newAuthors } on success.
+   * Rejects with an Error on API failure (existing data left intact by the server).
+   */
+  replaceImportedBooks: (books: ImportedBook[]) => Promise<{ newBooks: number; newAuthors: number }>;
+
+  /**
+   * POST /api/import with an empty array — removes all CSV books from the server.
+   */
+  clearImportedBooks: () => Promise<void>;
+
   isBookImported: (title: string) => boolean;
 }
 
+// ── Context ───────────────────────────────────────────────────────────────────
+
 const PreferencesContext = createContext<Preferences | null>(null);
+
+// ── localStorage for disliked IDs only ───────────────────────────────────────
 
 const STORAGE_KEY = 'reading-memory-prefs';
 
 interface StoredPrefs {
-  dislikedBookIds: string[];
+  dislikedBookIds:   string[];
   dislikedAuthorIds: string[];
 }
 
-function load(): StoredPrefs {
+function loadStored(): StoredPrefs {
   if (typeof window === 'undefined') return { dislikedBookIds: [], dislikedAuthorIds: [] };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -53,18 +91,28 @@ function load(): StoredPrefs {
   }
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 function normalizeTitle(t: string) {
   return t.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+/** Derive unique author names from a book list (for discovery queries). */
+function extractAuthorNames(books: ImportedBook[]): string[] {
+  return [...new Set(books.map(b => b.author).filter(Boolean))];
+}
+
+// ── Provider ──────────────────────────────────────────────────────────────────
+
 export function PreferencesProvider({ children }: { children: ReactNode }) {
-  // --- Persisted --- user-configured — preserved across imports, do not overwrite on import
-  const [dislikedBookIds, setDislikedBookIds] = useState<string[]>([]);
+
+  // ── Persisted dislike lists ────────────────────────────────────────────────
+  const [dislikedBookIds,   setDislikedBookIds]   = useState<string[]>([]);
   const [dislikedAuthorIds, setDislikedAuthorIds] = useState<string[]>([]);
   const isInitialMount = useRef(true);
 
   useEffect(() => {
-    const stored = load();
+    const stored = loadStored();
     setDislikedBookIds(stored.dislikedBookIds);
     setDislikedAuthorIds(stored.dislikedAuthorIds);
   }, []);
@@ -76,46 +124,107 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, [dislikedBookIds, dislikedAuthorIds]);
 
-  const dislikeBook    = (id: string) => setDislikedBookIds(p => p.includes(id) ? p : [...p, id]);
-  const unDislikeBook  = (id: string) => setDislikedBookIds(p => p.filter(i => i !== id));
-  const dislikeAuthor  = (id: string) => setDislikedAuthorIds(p => p.includes(id) ? p : [...p, id]);
+  const dislikeBook     = (id: string) => setDislikedBookIds(p  => p.includes(id) ? p : [...p, id]);
+  const unDislikeBook   = (id: string) => setDislikedBookIds(p  => p.filter(i => i !== id));
+  const dislikeAuthor   = (id: string) => setDislikedAuthorIds(p => p.includes(id) ? p : [...p, id]);
   const unDislikeAuthor = (id: string) => setDislikedAuthorIds(p => p.filter(i => i !== id));
   const isBookDisliked  = (id: string) => dislikedBookIds.includes(id);
   const isAuthorDisliked = (id: string) => dislikedAuthorIds.includes(id);
 
-  // --- In-memory only ---
-  const [importedBooks, setImportedBooks] = useState<ImportedBook[]>([]);
-  const [importedAuthorNames, setImportedAuthorNames] = useState<string[]>([]);
+  // ── API-backed library state ───────────────────────────────────────────────
+  const [importedBooks,           setImportedBooks]           = useState<ImportedBook[]>([]);
+  const [importedAuthorNames,     setImportedAuthorNames]     = useState<string[]>([]);
+  const [importedFavoriteAuthors, setImportedFavoriteAuthors] = useState<ImportedFavoriteAuthor[]>([]);
+  const [isLoading,  setIsLoading]  = useState(true);
+  const [loadError,  setLoadError]  = useState<string | null>(null);
 
   /**
-   * Completely replaces the in-memory library with the incoming CSV data.
-   * Every component that consumes importedBooks / importedAuthorNames will
-   * re-render automatically because both are React state.
+   * Fetch the current library state from the API and hydrate React state.
+   * Called on mount and after every mutation (import, clear, add, delete).
    */
-  const replaceImportedBooks = (incoming: ImportedBook[]): { newBooks: number; newAuthors: number } => {
-    const validBooks = incoming.filter(b => b.title.trim().length > 0);
-    const uniqueAuthors = [
-      ...new Set(validBooks.map(b => b.author.trim()).filter(a => a.length > 0)),
-    ];
-    setImportedBooks(validBooks);
-    setImportedAuthorNames(uniqueAuthors);
-    return { newBooks: validBooks.length, newAuthors: uniqueAuthors.length };
+  const hydrateFromAPI = useCallback(async () => {
+    try {
+      const [booksRes, authorsRes] = await Promise.all([
+        fetch('/api/library'),
+        fetch('/api/authors'),
+      ]);
+
+      if (!booksRes.ok || !authorsRes.ok) {
+        throw new Error('Server returned an error. Please refresh the page.');
+      }
+
+      const { books }:   { books: ImportedBook[] }           = await booksRes.json();
+      const { authors }: { authors: ImportedFavoriteAuthor[] } = await authorsRes.json();
+
+      setImportedBooks(books);
+      setImportedAuthorNames(extractAuthorNames(books));
+      setImportedFavoriteAuthors(authors);
+      setLoadError(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to connect to the server.';
+      setLoadError(msg);
+    }
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    hydrateFromAPI().finally(() => setIsLoading(false));
+  }, [hydrateFromAPI]);
+
+  // ── Mutations ──────────────────────────────────────────────────────────────
+
+  /**
+   * POST /api/import — bulk-replace CSV books then re-hydrate state.
+   */
+  const replaceImportedBooks = async (
+    incoming: ImportedBook[]
+  ): Promise<{ newBooks: number; newAuthors: number }> => {
+    const res = await fetch('/api/import', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ books: incoming }),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error ?? 'Import failed. Please try again.');
+    }
+
+    const data: { imported: number; authors: ImportedFavoriteAuthor[] } = await res.json();
+    await hydrateFromAPI();
+    return { newBooks: data.imported, newAuthors: data.authors.length };
   };
 
-  const clearImportedBooks = () => {
-    setImportedBooks([]);
-    setImportedAuthorNames([]);
+  /**
+   * POST /api/import with an empty array — clears all CSV books.
+   */
+  const clearImportedBooks = async (): Promise<void> => {
+    const res = await fetch('/api/import', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ books: [] }),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error ?? 'Failed to clear library.');
+    }
+
+    await hydrateFromAPI();
   };
 
   const isBookImported = (title: string) =>
     importedBooks.some(b => normalizeTitle(b.title) === normalizeTitle(title));
+
+  // ── Context value ──────────────────────────────────────────────────────────
 
   return (
     <PreferencesContext.Provider value={{
       dislikedBookIds, dislikedAuthorIds,
       dislikeBook, unDislikeBook, dislikeAuthor, unDislikeAuthor,
       isBookDisliked, isAuthorDisliked,
-      importedBooks, importedAuthorNames,
+      isLoading, loadError,
+      importedBooks, importedAuthorNames, importedFavoriteAuthors,
       replaceImportedBooks, clearImportedBooks, isBookImported,
     }}>
       {children}
