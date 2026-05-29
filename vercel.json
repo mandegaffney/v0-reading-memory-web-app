@@ -2,7 +2,6 @@
   "version": 2,
   "functions": {
     "server/index.js": {
-      "runtime": "nodejs20.x",
       "maxDuration": 10
     }
   },
