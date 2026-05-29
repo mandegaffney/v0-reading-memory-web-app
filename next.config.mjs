@@ -1,23 +1,25 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Static export for production — Express serves the `out/` folder on Railway.
-  // In development, the Next.js dev server handles routing normally.
-  output: process.env.NODE_ENV === 'production' ? 'export' : undefined,
+  // Static export is only needed for Railway/self-hosted deployments.
+  // On Vercel, Next.js is served natively — do not set output:'export'.
+  // To deploy to Railway, set STATIC_EXPORT=true in your environment.
+  output: process.env.STATIC_EXPORT === 'true' ? 'export' : undefined,
 
-  // Trailing slashes make Express's directory-index serving match Next.js URLs.
-  trailingSlash: true,
+  // Trailing slashes keep Express directory-index serving consistent
+  // (only relevant when STATIC_EXPORT=true).
+  trailingSlash: process.env.STATIC_EXPORT === 'true' ? true : undefined,
 
   typescript: {
     ignoreBuildErrors: true,
   },
 
   images: {
-    // Required for static export (no Next.js image optimisation server)
+    // Required when output:'export' (no image optimisation server).
+    // Safe to leave on at all times.
     unoptimized: true,
   },
 
   // Dev proxy: forward /api/* requests to the Express backend on port 3001.
-  // Not used in production (output:'export' has no server to apply rewrites).
   async rewrites() {
     if (process.env.NODE_ENV === 'production') return [];
     return [

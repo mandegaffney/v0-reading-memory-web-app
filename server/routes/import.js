@@ -1,49 +1,42 @@
 'use strict';
 
-const { Router }                               = require('express');
-const { randomUUID }                           = require('crypto');
-const { db, syncAuthors, getFavoriteAuthors }  = require('../db');
+const { Router }                                      = require('express');
+const { client, syncAuthors, getFavoriteAuthors, randomUUID } = require('../db');
 
 const router = Router();
 
 /**
  * POST /api/import
  *
- * Accepts a JSON payload { books: ImportedBook[] } and bulk-replaces
- * all books with source = "csv".  Books with source = "manual" are
- * never touched.
+ * Bulk-replaces all books with source = "csv".
+ * Manual books (source = "manual") are never touched.
+ * Runs as an atomic batch so the library is never left in a partial state.
  *
- * Body: { books: Array<{ title, author?, genre?, dateOrdered?,
- *                        unitPrice?, totalAmount?, orderStatus?, orderId? }> }
- *
+ * Body:   { books: Array<{ title, author?, genre?, dateOrdered?,
+ *                          unitPrice?, totalAmount?, orderStatus?, orderId? }> }
  * Response: { imported: number, authors: FavoriteAuthor[] }
  */
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { books } = req.body ?? {};
 
   if (!Array.isArray(books)) {
     return res.status(400).json({ error: '"books" must be an array.' });
   }
 
-  // Only keep rows that have a non-empty title
   const valid = books.filter(
-    b => typeof b?.title === 'string' && b.title.trim().length > 0
+    b => typeof b?.title === 'string' && b.title.trim().length > 0,
   );
 
   try {
-    const runImport = db.transaction(() => {
-      // 1. Remove all previously-imported CSV books
-      db.prepare(`DELETE FROM books WHERE source = 'csv'`).run();
-
-      // 2. Insert the new batch
-      const insert = db.prepare(`
-        INSERT INTO books
-          (id, title, author, genre, date_ordered, unit_price, total_amount, order_status, order_id, source)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'csv')
-      `);
-
-      for (const b of valid) {
-        insert.run(
+    // Delete old CSV books + insert the new batch atomically
+    const stmts = [
+      { sql: "DELETE FROM books WHERE source = 'csv'" },
+      ...valid.map(b => ({
+        sql: `INSERT INTO books
+                (id, title, author, genre, date_ordered, unit_price,
+                 total_amount, order_status, order_id, source)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'csv')`,
+        args: [
           randomUUID(),
           b.title.trim(),
           (b.author       ?? '').trim(),
@@ -53,23 +46,25 @@ router.post('/', (req, res) => {
           (b.totalAmount  ?? '').trim(),
           (b.orderStatus  ?? '').trim(),
           (b.orderId      ?? '').trim(),
-        );
-      }
+        ],
+      })),
+    ];
 
-      // 3. Re-evaluate the Favorite Authors list
-      syncAuthors();
-    });
+    await client.batch(stmts, 'write');
 
-    runImport();
+    // Re-evaluate the Favorite Authors list after the import
+    await syncAuthors();
 
     res.json({
       imported: valid.length,
-      authors:  getFavoriteAuthors(),
+      authors:  await getFavoriteAuthors(),
     });
   } catch (err) {
-    console.error('POST /api/import error:', err);
-    // Transaction rolled back — existing data untouched
-    res.status(500).json({ error: 'Import failed. Your existing library was not modified.' });
+    console.error('POST /api/import:', err);
+    // Batch rolled back — existing data untouched
+    res.status(500).json({
+      error: 'Import failed. Your existing library was not modified.',
+    });
   }
 });
 

@@ -1,23 +1,25 @@
 'use strict';
 
-const { Router }                     = require('express');
-const { randomUUID }                 = require('crypto');
-const { db, syncAuthors, bookToApi } = require('../db');
+const { Router }                                = require('express');
+const { client, syncAuthors, bookToApi, randomUUID } = require('../db');
 
 const router = Router();
 
 // GET /api/library — return all books, newest first
-router.get('/', (_req, res) => {
+router.get('/', async (_req, res) => {
   try {
-    const rows = db.prepare(`SELECT * FROM books ORDER BY created_at DESC`).all();
+    const { rows } = await client.execute(
+      'SELECT * FROM books ORDER BY created_at DESC'
+    );
     res.json({ books: rows.map(bookToApi) });
-  } catch {
+  } catch (err) {
+    console.error('GET /api/library:', err);
     res.status(500).json({ error: 'Failed to fetch library.' });
   }
 });
 
 // POST /api/library — add a single book (source: "manual")
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const {
     title        = '',
     author       = '',
@@ -35,43 +37,51 @@ router.post('/', (req, res) => {
 
   try {
     const id = randomUUID();
-    db.prepare(`
-      INSERT INTO books
-        (id, title, author, genre, date_ordered, unit_price, total_amount, order_status, order_id, source)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual')
-    `).run(
-      id,
-      String(title).trim(),
-      String(author).trim(),
-      String(genre).trim(),
-      String(dateOrdered).trim(),
-      String(unitPrice).trim(),
-      String(totalAmount).trim(),
-      String(orderStatus).trim(),
-      String(orderId).trim(),
-    );
+    await client.execute({
+      sql: `INSERT INTO books
+              (id, title, author, genre, date_ordered, unit_price,
+               total_amount, order_status, order_id, source)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual')`,
+      args: [
+        id,
+        String(title).trim(),
+        String(author).trim(),
+        String(genre).trim(),
+        String(dateOrdered).trim(),
+        String(unitPrice).trim(),
+        String(totalAmount).trim(),
+        String(orderStatus).trim(),
+        String(orderId).trim(),
+      ],
+    });
 
-    syncAuthors();
+    await syncAuthors();
 
-    const row = db.prepare(`SELECT * FROM books WHERE id = ?`).get(id);
-    res.status(201).json({ book: bookToApi(row) });
+    const { rows } = await client.execute({
+      sql:  'SELECT * FROM books WHERE id = ?',
+      args: [id],
+    });
+    res.status(201).json({ book: bookToApi(rows[0]) });
   } catch (err) {
-    console.error('POST /api/library error:', err);
+    console.error('POST /api/library:', err);
     res.status(500).json({ error: 'Failed to add book.' });
   }
 });
 
 // DELETE /api/library/:id — remove a book
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    const result = db.prepare(`DELETE FROM books WHERE id = ?`).run(req.params.id);
-    if (result.changes === 0) {
+    const result = await client.execute({
+      sql:  'DELETE FROM books WHERE id = ?',
+      args: [req.params.id],
+    });
+    if (result.rowsAffected === 0) {
       return res.status(404).json({ error: 'Book not found.' });
     }
-    syncAuthors();
+    await syncAuthors();
     res.json({ deleted: req.params.id });
   } catch (err) {
-    console.error('DELETE /api/library/:id error:', err);
+    console.error('DELETE /api/library/:id:', err);
     res.status(500).json({ error: 'Failed to delete book.' });
   }
 });
