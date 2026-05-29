@@ -51,9 +51,11 @@ export default function SettingsPage() {
   const [pendingFile, setPendingFile]   = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // ── Core parse + replace ─────────────────────────────────────────────────
+  // ── Core parse + API import ──────────────────────────────────────────────
   // Called only after the user confirms (or immediately if the library is empty).
-  // On any parse failure the existing data is left intact.
+  // isParsing remains true until the API call completes so the UI shows progress
+  // throughout the entire operation (CSV parse → API import → state hydration).
+  // On any failure the server leaves existing data intact.
   const runParse = useCallback(
     (file: File) => {
       setIsParsing(true);
@@ -63,11 +65,10 @@ export default function SettingsPage() {
         header: true,
         skipEmptyLines: true,
         complete(results) {
-          setIsParsing(false);
-          if (inputRef.current) inputRef.current.value = '';
-
-          // Parse failure — abort; do not touch existing data
+          // Parse failure — reset immediately; do not call the API
           if (results.errors.length && !results.data.length) {
+            setIsParsing(false);
+            if (inputRef.current) inputRef.current.value = '';
             setParseError('Could not read the file. Make sure it is a valid CSV.');
             return;
           }
@@ -86,26 +87,32 @@ export default function SettingsPage() {
             }))
             .filter(b => b.title.length > 0);
 
-          // Empty result — abort; do not touch existing data
+          // Empty result — reset immediately; do not call the API
           if (!books.length) {
-            setParseError(
-              'No books found. Make sure your CSV has a "Product Name" column with values.'
-            );
+            setIsParsing(false);
+            if (inputRef.current) inputRef.current.value = '';
+            setParseError('No books found. Make sure your CSV has a "Product Name" column with values.');
             return;
           }
 
-          // Replace the entire in-memory library.
-          // user-configured state (dislikedBookIds, dislikedAuthorIds) is preserved automatically —
-          // replaceImportedBooks only touches importedBooks and importedAuthorNames.
-          const { newBooks, newAuthors } = replaceImportedBooks(books);
-
-          toast.success(
-            `Library updated — ${newBooks} ${newBooks === 1 ? 'book' : 'books'} and ` +
-            `${newAuthors} ${newAuthors === 1 ? 'author' : 'authors'} loaded.`
-          );
+          // CSV is valid — send to the API. isParsing stays true until done.
+          replaceImportedBooks(books)
+            .then(({ newBooks, newAuthors }) => {
+              toast.success(
+                `Library updated — ${newBooks} ${newBooks === 1 ? 'book' : 'books'} and ` +
+                `${newAuthors} ${newAuthors === 1 ? 'author' : 'authors'} loaded.`
+              );
+            })
+            .catch((err: Error) => {
+              setParseError(err.message ?? 'Import failed. Please try again.');
+            })
+            .finally(() => {
+              setIsParsing(false);
+              if (inputRef.current) inputRef.current.value = '';
+            });
         },
         error(err) {
-          // Parse error — abort; do not touch existing data
+          // PapaParse error — reset immediately; do not call the API
           setIsParsing(false);
           setParseError(err.message ?? 'Unknown parse error.');
           if (inputRef.current) inputRef.current.value = '';
@@ -291,9 +298,13 @@ export default function SettingsPage() {
                   variant="ghost"
                   size="sm"
                   className="text-muted-foreground hover:text-destructive shrink-0"
-                  onClick={() => {
-                    clearImportedBooks();
-                    toast.success('Library cleared.');
+                  onClick={async () => {
+                    try {
+                      await clearImportedBooks();
+                      toast.success('Library cleared.');
+                    } catch {
+                      toast.error('Failed to clear library. Please try again.');
+                    }
                   }}
                 >
                   <Trash2 className="w-4 h-4 mr-2" />

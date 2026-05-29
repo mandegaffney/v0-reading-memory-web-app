@@ -13,22 +13,25 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export default function AuthorsPage() {
-  const { dislikedAuthorIds, dislikeAuthor, unDislikeAuthor, importedAuthorNames } = usePreferences();
+  const { dislikedAuthorIds, dislikeAuthor, unDislikeAuthor, importedBooks, importedFavoriteAuthors } = usePreferences();
 
-  const hasImport      = importedAuthorNames.length > 0;
+  const hasImport       = importedBooks.length > 0;
   const staticFavorites = authors.filter(a => a.isFavorite);
   const staticOthers    = authors.filter(a => !a.isFavorite);
 
-  // Imported names that don't overlap with known static authors
-  const knownNamesLower  = new Set(authors.map(a => a.name.toLowerCase()));
-  const importedOnlyNames = importedAuthorNames.filter(
-    name => !knownNamesLower.has(name.toLowerCase())
+  // From the qualified favorites, filter out any that overlap with known static authors
+  const knownNamesLower        = new Set(authors.map(a => a.name.toLowerCase()));
+  const importedFavoriteOnly   = importedFavoriteAuthors.filter(
+    ({ name }) => !knownNamesLower.has(name.toLowerCase())
   );
 
-  // Fetch Open Library photos for imported-only authors
-  const { photos: importedPhotos, isLoading: photosLoading } = useAuthorPhotos(importedOnlyNames);
+  // Fetch Open Library photos for those authors
+  const { photos: importedPhotos, isLoading: photosLoading } = useAuthorPhotos(
+    importedFavoriteOnly.map(a => a.name)
+  );
 
-  const totalAuthors = hasImport ? importedAuthorNames.length : authors.length;
+  // Show count of qualified favorites (not raw unique-author count)
+  const totalAuthors = hasImport ? importedFavoriteAuthors.length : authors.length;
 
   return (
     <div className="min-h-screen">
@@ -52,48 +55,61 @@ export default function AuthorsPage() {
       <main className="max-w-6xl mx-auto px-6 py-12 space-y-16">
 
         {/* ── Favorites ── */}
-        {(hasImport ? importedOnlyNames.length > 0 || staticFavorites.length > 0 : staticFavorites.length > 0) && (
-          <section>
-            <h2 className="font-serif text-2xl font-semibold tracking-tight mb-8">Favorite Authors</h2>
+        <section>
+          <h2 className="font-serif text-2xl font-semibold tracking-tight mb-8">Favorite Authors</h2>
 
-            {/* Imported-only authors: photos from Open Library + link to library filter */}
-            {hasImport && importedOnlyNames.length > 0 && (
+          {hasImport ? (
+            importedFavoriteAuthors.length >= 2 ? (
+              /* Imported favorites: photos from Open Library + book count + library filter link */
               <div className={staticFavorites.length > 0 ? 'mb-2' : ''}>
-                {importedOnlyNames.map((name, i) => (
+                {importedFavoriteOnly.map((author, i) => (
                   <Link
                     key={i}
-                    href={`/library?author=${encodeURIComponent(name)}`}
+                    href={`/library?author=${encodeURIComponent(author.name)}`}
                     className="group flex items-center gap-6 py-5 border-t border-border first:border-t-0 hover:bg-muted/30 -mx-4 px-4 rounded-sm transition-colors"
                   >
                     <AuthorAvatar
-                      name={name}
-                      photoUrl={importedPhotos.get(name) ?? null}
+                      name={author.name}
+                      photoUrl={importedPhotos.get(author.name) ?? null}
                       isLoading={photosLoading}
                       size="lg"
                     />
                     <div className="flex-1 min-w-0">
                       <p className="font-serif font-medium text-base truncate group-hover:text-accent transition-colors">
-                        {name}
+                        {author.name}
                       </p>
-                      <p className="text-sm text-muted-foreground">Browse in Library →</p>
+                      <p className="text-sm text-muted-foreground">
+                        {author.bookCount} {author.bookCount === 1 ? 'book' : 'books'} · Browse in Library →
+                      </p>
                     </div>
                   </Link>
                 ))}
-              </div>
-            )}
 
-            {/* Static favorites with full details */}
-            {staticFavorites.length > 0 && (
-              <AuthorList
-                authors={staticFavorites}
-                dislikedAuthorIds={dislikedAuthorIds}
-                onDislike={dislikeAuthor}
-                onUnDislike={unDislikeAuthor}
-                topBorder={hasImport && importedOnlyNames.length > 0}
-              />
-            )}
-          </section>
-        )}
+                {/* Static favorites sitting alongside imported ones */}
+                {staticFavorites.length > 0 && (
+                  <AuthorList
+                    authors={staticFavorites}
+                    dislikedAuthorIds={dislikedAuthorIds}
+                    onDislike={dislikeAuthor}
+                    onUnDislike={unDislikeAuthor}
+                    topBorder={importedFavoriteOnly.length > 0}
+                  />
+                )}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                Read more books by the same author to build your favorites list.
+              </p>
+            )
+          ) : staticFavorites.length > 0 ? (
+            <AuthorList
+              authors={staticFavorites}
+              dislikedAuthorIds={dislikedAuthorIds}
+              onDislike={dislikeAuthor}
+              onUnDislike={unDislikeAuthor}
+            />
+          ) : null}
+        </section>
 
         {/* ── Also in Your Collection ── */}
         {staticOthers.length > 0 && (

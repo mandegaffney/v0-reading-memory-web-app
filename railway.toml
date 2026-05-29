@@ -1,0 +1,16 @@
+[build]
+builder      = "NIXPACKS"
+buildCommand = "npm install && npm run build"
+
+[deploy]
+startCommand          = "npm start"
+healthcheckPath       = "/api/library"
+healthcheckTimeout    = 30
+restartPolicyType     = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+# Environment variables to set in the Railway dashboard:
+#
+#   NODE_ENV = production
+#   DATA_DIR = /app/data          ← mount a Railway Volume here for SQLite persistence
+#   CORS_ORIGIN = https://your-domain.up.railway.app

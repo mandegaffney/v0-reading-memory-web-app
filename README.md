@@ -1,35 +1,97 @@
-# v0-reading-memory-web-app
+# Reading Memory
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
+Track your hardcover book collection, discover new arrivals matched to your taste, and never buy a duplicate again.
 
-## Built with v0
+**Stack:** Next.js 16 · Express · SQLite (better-sqlite3) · Tailwind CSS · shadcn/ui
 
-This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
+---
 
-[Continue working on v0 →](https://v0.app/chat/projects/prj_0hAlXzw5W3g93HlDStN978SJOpDn)
+## Local Development
 
-## Getting Started
+### Prerequisites
 
-First, run the development server:
+- Node.js 18+
+- npm 9+
+
+### Setup
 
 ```bash
+# 1. Install all dependencies (frontend + backend)
+npm install
+
+# 2. Start both servers concurrently
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`npm run dev` runs:
+- **Next.js** on `http://localhost:3000` (frontend)
+- **Express** on `http://localhost:3001` (API)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+All `/api/*` requests from the Next.js dev server are automatically proxied to Express — no browser CORS issues.
 
-## Learn More
+The SQLite database is created automatically at `data/library.db` on first run.
 
-To learn more, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
+## API Endpoints
 
-<a href="https://v0.app/chat/api/kiro/clone/mandegaffney/v0-reading-memory-web-app" alt="Open in Kiro"><img src="https://pdgvvgmkdvyeydso.public.blob.vercel-storage.com/open%20in%20kiro.svg?sanitize=true" /></a>
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/library` | Return all books |
+| `POST` | `/api/library` | Add a single book (`source: "manual"`) |
+| `DELETE` | `/api/library/:id` | Remove a book by ID |
+| `GET` | `/api/authors` | Return all favorite authors (≥ 2 books) |
+| `POST` | `/api/authors` | Manually add or un-hide an author |
+| `DELETE` | `/api/authors/:id` | Hide an author from the favorites list |
+| `POST` | `/api/import` | Bulk-replace all `source: "csv"` books |
+
+**Data rules:**
+- Books with `source: "manual"` are never deleted by `/api/import`
+- The Favorite Authors list is re-evaluated after every import or book change
+- An author needs ≥ 2 books in the library to appear in Favorite Authors
+
+---
+
+## Production Build
+
+```bash
+# Build the Next.js static export
+npm run build
+
+# Start the Express server (serves API + static frontend)
+NODE_ENV=production npm start
+```
+
+The production server runs on `PORT` (default `3001`).
+
+---
+
+## Deploy to Railway
+
+1. Create a new Railway project and link this repository.
+2. Railway will detect the `railway.toml` config and use it automatically.
+3. Set the following environment variables in the Railway dashboard:
+
+   | Variable | Value |
+   |----------|-------|
+   | `NODE_ENV` | `production` |
+   | `DATA_DIR` | `/app/data` |
+   | `CORS_ORIGIN` | `https://your-app.up.railway.app` |
+
+4. **Add a Railway Volume** for SQLite persistence:
+   - Go to your service → **Volumes** → **Add Volume**
+   - Mount path: `/app/data`
+   - Without a volume the database resets on every deploy.
+
+5. Deploy. Railway runs `npm install && npm run build` then `npm start`.
+
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3001` | Port the Express server listens on |
+| `NODE_ENV` | `development` | Set to `production` for Railway |
+| `DATA_DIR` | `./data` | Directory where `library.db` is stored |
+| `CORS_ORIGIN` | `http://localhost:3000` | Allowed CORS origin |
