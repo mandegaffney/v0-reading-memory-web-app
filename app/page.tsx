@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Header } from '@/components/header';
@@ -8,55 +8,28 @@ import { Section, BookGrid, EmptyState } from '@/components/layout';
 import { BookCard } from '@/components/book-card';
 import { DiscoveryCard, DiscoveryCardSkeleton } from '@/components/discovery-card';
 import { AuthorAvatar } from '@/components/author-avatar';
+import { AddBookModal } from '@/components/add-book-modal';
 import { usePreferences } from '@/lib/preferences';
 import { useAuthorBooks } from '@/lib/use-author-books';
 import { useNewArrivals } from '@/lib/use-new-arrivals';
 import { useAuthorPhotos } from '@/lib/use-author-photos';
 import { getFavoriteAuthors, getOwnedBooks } from '@/lib/data';
-import { ArrowRight, BookOpen } from 'lucide-react';
+import { ArrowRight, BookOpen, Plus } from 'lucide-react';
 
 function normalizeTitle(t: string): string {
   return t.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 export default function HomePage() {
+  // ── All hooks must be called unconditionally before any early return ──────
   const { dislikedBookIds, dislikedAuthorIds, importedBooks, importedAuthorNames, importedFavoriteAuthors, isLoading, loadError } = usePreferences();
-
-  // ── Initial API load states ──────────────────────────────────────────────
-  if (isLoading) {
-    return (
-      <div className="min-h-screen">
-        <Header />
-        <div className="max-w-6xl mx-auto px-6 py-32 text-center">
-          <p className="text-muted-foreground text-sm animate-pulse">Loading your library…</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (loadError) {
-    return (
-      <div className="min-h-screen">
-        <Header />
-        <div className="max-w-6xl mx-auto px-6 py-32 text-center">
-          <p className="text-destructive text-sm">{loadError}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 text-sm underline underline-offset-4 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Refresh
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const [addBookOpen, setAddBookOpen] = useState(false);
 
   const favoriteAuthors = getFavoriteAuthors(dislikedAuthorIds);
   const ownedBooks      = getOwnedBooks(dislikedBookIds);
 
   const hasImport    = importedBooks.length > 0;
   const totalOwned   = hasImport ? importedBooks.length  : ownedBooks.length;
-  // Stat reflects the qualified favorites list, not raw unique-author count
   const totalAuthors = hasImport ? importedFavoriteAuthors.length : favoriteAuthors.length;
 
   // Fetch Open Library photos for the top 6 favorite authors shown on the home page
@@ -95,30 +68,77 @@ export default function HomePage() {
 
   const recentImported = importedBooks.slice(0, 10);
 
+  // ── Early returns after all hooks ─────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <div className="min-h-screen">
+        <Header />
+        <div className="max-w-6xl mx-auto px-6 py-32 text-center">
+          <p className="text-muted-foreground text-sm animate-pulse">Loading your library…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen">
+        <Header />
+        <div className="max-w-6xl mx-auto px-6 py-32 text-center">
+          <p className="text-destructive text-sm">{loadError}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 text-sm underline underline-offset-4 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen">
       <Header />
+      <AddBookModal open={addBookOpen} onOpenChange={setAddBookOpen} />
 
       {/* Hero / Stats */}
       <div className="border-b border-border">
         <div className="max-w-6xl mx-auto px-6 py-16 md:py-24">
-          <div className="max-w-2xl">
-            <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-balance leading-tight">
-              Your personal
-              <br />
-              <span className="text-muted-foreground">book collection</span>
-            </h1>
-            <p className="text-lg text-muted-foreground mt-6 leading-relaxed">
-              {totalOwned} hardcover {totalOwned === 1 ? 'book' : 'books'} from{' '}
-              {totalAuthors} favorite {totalAuthors === 1 ? 'author' : 'authors'}.
-              Never buy duplicates again.
-            </p>
+          <div className="flex items-start justify-between gap-4">
+            <div className="max-w-2xl">
+              <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-balance leading-tight">
+                Your personal
+                <br />
+                <span className="text-muted-foreground">book collection</span>
+              </h1>
+              <p className="text-lg text-muted-foreground mt-6 leading-relaxed">
+                {totalOwned} hardcover {totalOwned === 1 ? 'book' : 'books'} from{' '}
+                {totalAuthors} favorite {totalAuthors === 1 ? 'author' : 'authors'}.
+                Never buy duplicates again.
+              </p>
+            </div>
+            <button
+              onClick={() => setAddBookOpen(true)}
+              className="shrink-0 hidden sm:inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-sm text-sm font-medium hover:bg-primary/90 transition-colors mt-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add Book
+            </button>
           </div>
 
-          <div className="flex flex-wrap gap-8 mt-12">
+          <div className="flex flex-wrap items-center gap-8 mt-12">
             <Stat value={totalOwned}        label="Books owned" />
             <Stat value={totalAuthors}      label="Favorite authors" />
             <Stat value={preOrders.length}  label="Pre-orders available" />
+            {/* Mobile-only Add Book button */}
+            <button
+              onClick={() => setAddBookOpen(true)}
+              className="sm:hidden inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-sm text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Add Book
+            </button>
           </div>
         </div>
       </div>

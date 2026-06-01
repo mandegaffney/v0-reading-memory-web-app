@@ -64,6 +64,12 @@ interface Preferences {
    */
   clearImportedBooks: () => Promise<void>;
 
+  /**
+   * POST /api/library — add a single manually-scanned or entered book.
+   * Never overwritten by a CSV import (source: "manual").
+   */
+  addBook: (book: Omit<ImportedBook, 'id' | 'source'>) => Promise<void>;
+
   isBookImported: (title: string) => boolean;
 }
 
@@ -213,6 +219,22 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     await hydrateFromAPI();
   };
 
+  /**
+   * POST /api/library — save a manually scanned/entered book (source: "manual").
+   */
+  const addBook = async (book: Omit<ImportedBook, 'id' | 'source'>): Promise<void> => {
+    const res = await fetch('/api/library', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(book),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error ?? 'Failed to add book.');
+    }
+    await hydrateFromAPI();
+  };
+
   const isBookImported = (title: string) =>
     importedBooks.some(b => normalizeTitle(b.title) === normalizeTitle(title));
 
@@ -225,7 +247,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       isBookDisliked, isAuthorDisliked,
       isLoading, loadError,
       importedBooks, importedAuthorNames, importedFavoriteAuthors,
-      replaceImportedBooks, clearImportedBooks, isBookImported,
+      replaceImportedBooks, clearImportedBooks, addBook, isBookImported,
     }}>
       {children}
     </PreferencesContext.Provider>

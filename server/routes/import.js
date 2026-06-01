@@ -55,6 +55,7 @@ router.post('/', async (req, res) => {
     ];
 
     await client.batch(stmts, 'write');
+    console.log(`[import] ✓ Wrote ${valid.length} books to database`);
 
     // Re-evaluate the Favorite Authors list after the import
     await syncAuthors();

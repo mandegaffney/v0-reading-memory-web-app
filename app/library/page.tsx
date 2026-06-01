@@ -5,9 +5,10 @@ import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/header';
 import { BookCard } from '@/components/book-card';
+import { AddBookModal } from '@/components/add-book-modal';
 import { usePreferences } from '@/lib/preferences';
 import { getOwnedBooks } from '@/lib/data';
-import { ArrowLeft, Search, BookOpen, X } from 'lucide-react';
+import { ArrowLeft, Search, BookOpen, X, Plus } from 'lucide-react';
 
 function normalizeTitle(t: string): string {
   return t.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -19,6 +20,7 @@ function LibraryContent() {
   const searchParams  = useSearchParams();
   const router        = useRouter();
   const { dislikedBookIds, importedBooks } = usePreferences();
+  const [addBookOpen, setAddBookOpen] = useState(false);
 
   const authorFromUrl = searchParams.get('author') ?? '';
   const [query, setQuery] = useState(authorFromUrl);
@@ -75,6 +77,7 @@ function LibraryContent() {
   return (
     <div className="min-h-screen">
       <Header />
+      <AddBookModal open={addBookOpen} onOpenChange={setAddBookOpen} />
 
       <div className="max-w-6xl mx-auto px-6 pt-6">
         <Link
@@ -88,11 +91,20 @@ function LibraryContent() {
 
       {/* Page header */}
       <div className="border-b border-border mt-6">
-        <div className="max-w-6xl mx-auto px-6 py-10">
-          <h1 className="font-serif text-3xl md:text-4xl font-semibold tracking-tight">
-            {pageTitle}
-          </h1>
-          <p className="text-muted-foreground mt-2">{pageSubtitle}</p>
+        <div className="max-w-6xl mx-auto px-6 py-10 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="font-serif text-3xl md:text-4xl font-semibold tracking-tight">
+              {pageTitle}
+            </h1>
+            <p className="text-muted-foreground mt-2">{pageSubtitle}</p>
+          </div>
+          <button
+            onClick={() => setAddBookOpen(true)}
+            className="shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-sm text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add Book
+          </button>
         </div>
       </div>
 

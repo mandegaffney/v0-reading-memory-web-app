@@ -4,7 +4,7 @@ const express = require('express');
 const cors    = require('cors');
 const path    = require('path');
 const fs      = require('fs');
-const { initSchema } = require('./db');
+const { initSchema, initDB } = require('./db');
 
 const app  = express();
 const PORT = Number(process.env.PORT ?? 3001);
@@ -18,20 +18,26 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 
 // ── Lazy schema init ──────────────────────────────────────────────────────────
-// Runs CREATE TABLE IF NOT EXISTS once per cold start (idempotent).
-// Covers both Vercel serverless cold starts and long-running local dev.
+// Vercel cold starts: runs CREATE TABLE IF NOT EXISTS on first request.
+// Local dev: initDB() is called at startup instead (see bottom of file).
 
 let _schemaReady   = false;
 let _schemaPromise = null;
 
 app.use(async (_req, _res, next) => {
   if (_schemaReady) return next();
-  if (!_schemaPromise) _schemaPromise = initSchema();
+  if (!_schemaPromise) {
+    _schemaPromise = initSchema().catch(err => {
+      _schemaPromise = null; // allow retry on next request
+      throw err;
+    });
+  }
   try {
     await _schemaPromise;
     _schemaReady = true;
     next();
   } catch (err) {
+    console.error('[db] Schema init failed:', err.message);
     next(err);
   }
 });
@@ -68,7 +74,18 @@ module.exports = app;
 // ── Local dev: also listen on a port ──────────────────────────────────────────
 
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`\n🚀 Reading Memory API — port ${PORT}\n`);
-  });
+  initDB()
+    .then(() => {
+      _schemaReady = true; // skip lazy init on first request
+      app.listen(PORT, () => {
+        console.log(`\n🚀 Reading Memory API — port ${PORT}\n`);
+      });
+    })
+    .catch(err => {
+      // DB unavailable — still start the server; routes degrade gracefully
+      console.error('[db] Startup warning:', err.message);
+      app.listen(PORT, () => {
+        console.log(`\n🚀 Reading Memory API — port ${PORT} (DB unavailable)\n`);
+      });
+    });
 }

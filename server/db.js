@@ -10,14 +10,6 @@ const fs               = require('fs');
 const MIN_BOOKS_FOR_FAVORITE_AUTHOR = 2;
 
 // ── Client setup ──────────────────────────────────────────────────────────────
-//
-// Priority order:
-//   1. TURSO_DATABASE_URL set → Turso remote DB (pure HTTP, works everywhere)
-//   2. Running on Vercel without Turso → /tmp/library.db (writable, ephemeral)
-//   3. Local dev → data/library.db next to the project root
-//
-// On Vercel the project root is read-only; only /tmp is writable.
-// VERCEL env var is automatically set to '1' in all Vercel environments.
 
 function resolveDataDir() {
   if (process.env.DATA_DIR) return process.env.DATA_DIR;
@@ -29,23 +21,17 @@ function makeClient() {
   if (process.env.TURSO_DATABASE_URL) {
     return createClient({
       url:       process.env.TURSO_DATABASE_URL,
-      authToken: process.env.TURSO_AUTH_TOKEN,
+      // Treat empty string the same as missing — avoids 401 with blank token
+      authToken: process.env.TURSO_AUTH_TOKEN || undefined,
     });
   }
-
   const dataDir = resolveDataDir();
   try {
     if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-  } catch {
-    // /tmp always exists; ignore mkdir errors
-  }
-
+  } catch { /* /tmp always exists */ }
   return createClient({ url: `file:${path.join(dataDir, 'library.db')}` });
 }
 
-// Attempt to create the client; if anything goes wrong (e.g. native bindings
-// unavailable in the Lambda environment) set client to null and let the route
-// handlers return graceful empty responses rather than crashing the process.
 let client = null;
 try {
   client = makeClient();
@@ -56,7 +42,7 @@ try {
 // ── Schema ────────────────────────────────────────────────────────────────────
 
 async function initSchema() {
-  if (!client) return; // No client — skip silently
+  if (!client) return;
   await client.batch([
     {
       sql: `CREATE TABLE IF NOT EXISTS books (
@@ -85,17 +71,38 @@ async function initSchema() {
   ], 'write');
 }
 
+/**
+ * Initialise the database: create tables + verify connection.
+ * Called once at local-dev server startup; on Vercel the lazy middleware
+ * in index.js handles this per cold-start.
+ */
+async function initDB() {
+  if (!client) {
+    console.warn('[db] No database client — running without persistence');
+    return;
+  }
+  const target = process.env.TURSO_DATABASE_URL
+    ? `Turso (${process.env.TURSO_DATABASE_URL})`
+    : `local SQLite (${path.join(resolveDataDir(), 'library.db')})`;
+  try {
+    await initSchema();
+    await client.execute('SELECT 1');
+    console.log(`[db] ✓ Connected to ${target}`);
+  } catch (err) {
+    console.error(`[db] ✗ Connection failed (${target}): ${err.message}`);
+    throw err;
+  }
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 async function syncAuthors() {
   if (!client) return;
-
   const { rows: qualified } = await client.execute({
     sql:  `SELECT author AS name FROM books WHERE author != ''
            GROUP BY lower(author) HAVING COUNT(*) >= ?`,
     args: [MIN_BOOKS_FOR_FAVORITE_AUTHOR],
   });
-
   if (qualified.length > 0) {
     await client.batch(
       qualified.map(row => ({
@@ -105,7 +112,6 @@ async function syncAuthors() {
       'write',
     );
   }
-
   await client.execute({
     sql:  `DELETE FROM authors
            WHERE is_manual = 0
@@ -149,13 +155,13 @@ function bookToApi(row) {
   };
 }
 
-/** True when running without a configured database (Vercel without Turso). */
 const isDbAvailable = () => client !== null;
 
 module.exports = {
   client,
   isDbAvailable,
   initSchema,
+  initDB,
   syncAuthors,
   getFavoriteAuthors,
   bookToApi,
