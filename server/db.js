@@ -10,8 +10,20 @@ const fs               = require('fs');
 const MIN_BOOKS_FOR_FAVORITE_AUTHOR = 2;
 
 // ── Client setup ──────────────────────────────────────────────────────────────
-// Development  → embedded file-based SQLite (no Turso account needed)
-// Production   → Turso remote database over HTTP (no native bindings needed)
+//
+// Priority order:
+//   1. TURSO_DATABASE_URL set → Turso remote DB (pure HTTP, works everywhere)
+//   2. Running on Vercel without Turso → /tmp/library.db (writable, ephemeral)
+//   3. Local dev → data/library.db next to the project root
+//
+// On Vercel the project root is read-only; only /tmp is writable.
+// VERCEL env var is automatically set to '1' in all Vercel environments.
+
+function resolveDataDir() {
+  if (process.env.DATA_DIR) return process.env.DATA_DIR;
+  if (process.env.VERCEL)   return '/tmp';
+  return path.join(__dirname, '..', 'data');
+}
 
 function makeClient() {
   if (process.env.TURSO_DATABASE_URL) {
@@ -20,17 +32,31 @@ function makeClient() {
       authToken: process.env.TURSO_AUTH_TOKEN,
     });
   }
-  // Local dev: embedded SQLite file
-  const dataDir = process.env.DATA_DIR ?? path.join(__dirname, '..', 'data');
-  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+
+  const dataDir = resolveDataDir();
+  try {
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+  } catch {
+    // /tmp always exists; ignore mkdir errors
+  }
+
   return createClient({ url: `file:${path.join(dataDir, 'library.db')}` });
 }
 
-const client = makeClient();
+// Attempt to create the client; if anything goes wrong (e.g. native bindings
+// unavailable in the Lambda environment) set client to null and let the route
+// handlers return graceful empty responses rather than crashing the process.
+let client = null;
+try {
+  client = makeClient();
+} catch (err) {
+  console.error('[db] Failed to create database client:', err);
+}
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
 async function initSchema() {
+  if (!client) return; // No client — skip silently
   await client.batch([
     {
       sql: `CREATE TABLE IF NOT EXISTS books (
@@ -61,20 +87,12 @@ async function initSchema() {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/**
- * Keep the authors table in sync with the current books.
- * - Authors with ≥ MIN_BOOKS_FOR_FAVORITE_AUTHOR books are promoted (if new).
- * - Non-manual authors who fall below the threshold are removed.
- * - Manual authors (is_manual = 1) are never auto-removed.
- */
 async function syncAuthors() {
-  // 1. Promote newly-qualified authors (INSERT OR IGNORE = skip existing rows)
+  if (!client) return;
+
   const { rows: qualified } = await client.execute({
-    sql: `SELECT author AS name
-          FROM   books
-          WHERE  author != ''
-          GROUP  BY lower(author)
-          HAVING COUNT(*) >= ?`,
+    sql:  `SELECT author AS name FROM books WHERE author != ''
+           GROUP BY lower(author) HAVING COUNT(*) >= ?`,
     args: [MIN_BOOKS_FOR_FAVORITE_AUTHOR],
   });
 
@@ -88,27 +106,21 @@ async function syncAuthors() {
     );
   }
 
-  // 2. Remove auto-added authors who no longer qualify
   await client.execute({
-    sql: `DELETE FROM authors
-          WHERE is_manual = 0
-            AND lower(name) NOT IN (
-              SELECT lower(author) FROM books
-              WHERE  author != ''
-              GROUP  BY lower(author)
-              HAVING COUNT(*) >= ?
-            )`,
+    sql:  `DELETE FROM authors
+           WHERE is_manual = 0
+             AND lower(name) NOT IN (
+               SELECT lower(author) FROM books WHERE author != ''
+               GROUP BY lower(author) HAVING COUNT(*) >= ?
+             )`,
     args: [MIN_BOOKS_FOR_FAVORITE_AUTHOR],
   });
 }
 
-/** Return visible favorite authors with book counts (API shape). */
 async function getFavoriteAuthors() {
+  if (!client) return [];
   const { rows } = await client.execute(`
-    SELECT
-      a.id,
-      a.name,
-      COUNT(b.id) AS book_count
+    SELECT a.id, a.name, COUNT(b.id) AS book_count
     FROM   authors a
     LEFT   JOIN books b ON lower(b.author) = lower(a.name)
     WHERE  a.is_hidden = 0
@@ -122,7 +134,6 @@ async function getFavoriteAuthors() {
   }));
 }
 
-/** Map a DB row (snake_case) → API response shape (camelCase). */
 function bookToApi(row) {
   return {
     id:          String(row.id),
@@ -138,8 +149,12 @@ function bookToApi(row) {
   };
 }
 
+/** True when running without a configured database (Vercel without Turso). */
+const isDbAvailable = () => client !== null;
+
 module.exports = {
   client,
+  isDbAvailable,
   initSchema,
   syncAuthors,
   getFavoriteAuthors,

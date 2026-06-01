@@ -1,12 +1,13 @@
 'use strict';
 
 const { Router }                                = require('express');
-const { client, syncAuthors, bookToApi, randomUUID } = require('../db');
+const { client, isDbAvailable, syncAuthors, bookToApi, randomUUID } = require('../db');
 
 const router = Router();
 
 // GET /api/library — return all books, newest first
 router.get('/', async (_req, res) => {
+  if (!isDbAvailable()) return res.json({ books: [] });
   try {
     const { rows } = await client.execute(
       'SELECT * FROM books ORDER BY created_at DESC'
@@ -34,6 +35,7 @@ router.post('/', async (req, res) => {
   if (!String(title).trim()) {
     return res.status(400).json({ error: 'title is required.' });
   }
+  if (!isDbAvailable()) return res.status(503).json({ error: 'Database not configured.' });
 
   try {
     const id = randomUUID();
@@ -70,6 +72,7 @@ router.post('/', async (req, res) => {
 
 // DELETE /api/library/:id — remove a book
 router.delete('/:id', async (req, res) => {
+  if (!isDbAvailable()) return res.status(503).json({ error: 'Database not configured.' });
   try {
     const result = await client.execute({
       sql:  'DELETE FROM books WHERE id = ?',

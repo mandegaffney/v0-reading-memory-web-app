@@ -1,7 +1,7 @@
 'use strict';
 
 const { Router }                                      = require('express');
-const { client, syncAuthors, getFavoriteAuthors, randomUUID } = require('../db');
+const { client, isDbAvailable, syncAuthors, getFavoriteAuthors, randomUUID } = require('../db');
 
 const router = Router();
 
@@ -26,6 +26,10 @@ router.post('/', async (req, res) => {
   const valid = books.filter(
     b => typeof b?.title === 'string' && b.title.trim().length > 0,
   );
+
+  if (!isDbAvailable()) {
+    return res.status(503).json({ error: 'Database not configured. Add TURSO_DATABASE_URL and TURSO_AUTH_TOKEN to your Vercel environment variables.' });
+  }
 
   try {
     // Delete old CSV books + insert the new batch atomically

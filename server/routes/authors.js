@@ -1,12 +1,13 @@
 'use strict';
 
 const { Router }                             = require('express');
-const { client, getFavoriteAuthors, randomUUID } = require('../db');
+const { client, isDbAvailable, getFavoriteAuthors, randomUUID } = require('../db');
 
 const router = Router();
 
 // GET /api/authors — all visible favorite authors with book counts
 router.get('/', async (_req, res) => {
+  if (!isDbAvailable()) return res.json({ authors: [] });
   try {
     res.json({ authors: await getFavoriteAuthors() });
   } catch (err) {
@@ -23,6 +24,7 @@ router.post('/', async (req, res) => {
   }
 
   const trimmed = String(name).trim();
+  if (!isDbAvailable()) return res.status(503).json({ error: 'Database not configured.' });
 
   try {
     const { rows } = await client.execute({
@@ -52,6 +54,7 @@ router.post('/', async (req, res) => {
 
 // DELETE /api/authors/:id — hide an author from the favorites list
 router.delete('/:id', async (req, res) => {
+  if (!isDbAvailable()) return res.status(503).json({ error: 'Database not configured.' });
   try {
     const result = await client.execute({
       sql:  'UPDATE authors SET is_hidden = 1 WHERE id = ?',
