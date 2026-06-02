@@ -61,7 +61,7 @@ export function DiscoveryCard({ book, preOrder = false, badge }: DiscoveryCardPr
         href={book.buyUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-auto pt-4 inline-flex items-center justify-center gap-1.5 text-[9px] font-sans font-medium uppercase tracking-[0.18em] text-foreground border border-foreground px-3 py-2 hover:bg-foreground hover:text-background transition-colors duration-150"
+        className="mt-auto pt-4 inline-flex items-center justify-center gap-1.5 text-[9px] font-sans font-medium uppercase tracking-[0.18em] leading-none text-foreground border border-foreground px-3 py-2 hover:bg-foreground hover:text-background transition-colors duration-150"
       >
         Buy at Ladybird
       </a>
