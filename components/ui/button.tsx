@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 const buttonVariants = cva(
   [
     'inline-flex items-center justify-center gap-2 whitespace-nowrap',
-    'text-[11px] font-sans font-medium uppercase tracking-[0.14em]',
+    'text-[11px] font-sans font-medium uppercase tracking-[0.14em] leading-none',
     'transition-opacity duration-150',
     'disabled:pointer-events-none disabled:opacity-40',
     '[&_svg]:pointer-events-none [&_svg:not([class*="size-"])]:size-3.5 shrink-0 [&_svg]:shrink-0',

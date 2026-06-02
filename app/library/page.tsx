@@ -100,7 +100,7 @@ function LibraryContent() {
           </div>
           <button
             onClick={() => setAddBookOpen(true)}
-            className="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 bg-foreground text-background text-[10px] uppercase tracking-[0.18em] font-medium hover:opacity-75 transition-opacity"
+            className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-foreground text-background text-[10px] uppercase tracking-[0.18em] leading-none font-medium hover:opacity-75 transition-opacity"
           >
             <Plus className="w-3.5 h-3.5" />
             Add Book

@@ -122,7 +122,7 @@ export default function HomePage() {
             {/* Desktop Add Book — sharp, uppercase, editorial */}
             <button
               onClick={() => setAddBookOpen(true)}
-              className="shrink-0 hidden sm:inline-flex items-center gap-2 px-5 py-2.5 bg-foreground text-background text-[10px] uppercase tracking-[0.18em] font-medium hover:opacity-75 transition-opacity mt-2"
+              className="shrink-0 hidden sm:inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-foreground text-background text-[10px] uppercase tracking-[0.18em] leading-none font-medium hover:opacity-75 transition-opacity mt-2"
             >
               <Plus className="w-3.5 h-3.5" />
               Add Book
@@ -137,7 +137,7 @@ export default function HomePage() {
             {/* Mobile Add Book */}
             <button
               onClick={() => setAddBookOpen(true)}
-              className="sm:hidden inline-flex items-center gap-2 px-5 py-2.5 bg-foreground text-background text-[10px] uppercase tracking-[0.18em] font-medium hover:opacity-75 transition-opacity"
+              className="sm:hidden inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-foreground text-background text-[10px] uppercase tracking-[0.18em] leading-none font-medium hover:opacity-75 transition-opacity"
             >
               <Plus className="w-3.5 h-3.5" />
               Add Book
@@ -240,7 +240,7 @@ export default function HomePage() {
           className="border-t border-border"
         >
           {isArrivalsLoading ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-10">
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className={i >= 4 ? 'hidden md:block' : ''}>
                   <DiscoveryCardSkeleton />
@@ -253,7 +253,7 @@ export default function HomePage() {
               description={arrivalsError}
             />
           ) : arrivals.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-10">
               {arrivals.slice(0, 8).map((book, i) => (
                 <div key={book.key} className={i >= 4 ? 'hidden md:block' : ''}>
                   <DiscoveryCard book={book} badge="New This Week" />
@@ -276,7 +276,7 @@ export default function HomePage() {
             className="border-t border-border"
           >
             {isPreOrdersLoading ? (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-10">
                 {Array.from({ length: 8 }).map((_, i) => (
                   <div key={i} className={i >= 4 ? 'hidden md:block' : ''}>
                     <DiscoveryCardSkeleton />
@@ -284,7 +284,7 @@ export default function HomePage() {
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-10">
                 {preOrders.slice(0, 8).map((book, i) => (
                   <div key={book.key} className={i >= 4 ? 'hidden md:block' : ''}>
                     <DiscoveryCard book={book} preOrder />
