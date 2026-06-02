@@ -4,84 +4,101 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Editorial, magazine-like palette - warm off-white, deep charcoal, natural neutrals */
-  --background: oklch(0.98 0.005 85);
-  --foreground: oklch(0.18 0.01 45);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.01 45);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.01 45);
-  --primary: oklch(0.18 0.01 45);
-  --primary-foreground: oklch(0.98 0.005 85);
-  --secondary: oklch(0.95 0.008 80);
-  --secondary-foreground: oklch(0.25 0.01 45);
-  --muted: oklch(0.93 0.008 80);
-  --muted-foreground: oklch(0.45 0.01 45);
-  --accent: oklch(0.42 0.05 45);
-  --accent-foreground: oklch(0.98 0.005 85);
-  --destructive: oklch(0.55 0.15 25);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.88 0.01 80);
-  --input: oklch(0.92 0.008 80);
-  --ring: oklch(0.45 0.02 45);
+  /* ── Feel Free palette ──────────────────────────────────────────────────────
+   * Warm linen / plaster / aged white system. Depth through warmth, not hue.
+   * Single accent: warm charcoal / aged black. No blues, no teals.
+   * ────────────────────────────────────────────────────────────────────────── */
+
+  /* Surfaces — layered warm whites */
+  --background:    oklch(0.963 0.013 82);   /* warm linen ground */
+  --card:          oklch(0.980 0.008 84);   /* warm white card — lighter than bg */
+  --popover:       oklch(0.980 0.008 84);
+  --secondary:     oklch(0.945 0.016 79);   /* raw plaster / deeper surface */
+  --muted:         oklch(0.928 0.018 78);   /* input / muted panel */
+  --input:         oklch(0.940 0.014 79);
+
+  /* Text */
+  --foreground:           oklch(0.115 0.018 44);  /* aged black */
+  --card-foreground:      oklch(0.115 0.018 44);
+  --popover-foreground:   oklch(0.115 0.018 44);
+  --secondary-foreground: oklch(0.200 0.015 44);
+  --muted-foreground:     oklch(0.490 0.014 52);  /* warm medium gray */
+
+  /* Primary — pure aged black on warm white */
+  --primary:            oklch(0.115 0.018 44);
+  --primary-foreground: oklch(0.963 0.013 82);
+
+  /* Accent — same aged black (used for hover states / brand moments) */
+  --accent:            oklch(0.150 0.020 42);
+  --accent-foreground: oklch(0.963 0.013 82);
+
+  /* Border — hairline warm gray, not cool */
+  --border: oklch(0.848 0.012 76);
+  --ring:   oklch(0.250 0.020 44);
+
+  /* Semantic */
+  --destructive:            oklch(0.550 0.150 25);
+  --destructive-foreground: oklch(0.980 0 0);
+  --warning:                oklch(0.750 0.120 70);
+  --warning-foreground:     oklch(0.200 0.050 45);
+  --success:                oklch(0.520 0.120 145);
+  --success-foreground:     oklch(0.980 0 0);
+
+  /* ── Border radius: sharp / editorial ──────────────────────────────────── */
+  /* 2px base so rounded-sm = 0, rounded-md = 2px, rounded-lg = 4px         */
+  --radius: 0.125rem;
+
+  /* Charts (unchanged) */
   --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-2: oklch(0.600 0.118 184.704);
+  --chart-3: oklch(0.398 0.070 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.375rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-  
-  /* Custom tokens for editorial design */
-  --warning: oklch(0.75 0.12 70);
-  --warning-foreground: oklch(0.25 0.05 45);
-  --success: oklch(0.55 0.12 145);
-  --success-foreground: oklch(0.98 0 0);
+  --chart-5: oklch(0.769 0.188 70.080);
+
+  /* Sidebar */
+  --sidebar:                  oklch(0.963 0.013 82);
+  --sidebar-foreground:       oklch(0.115 0.018 44);
+  --sidebar-primary:          oklch(0.115 0.018 44);
+  --sidebar-primary-foreground: oklch(0.963 0.013 82);
+  --sidebar-accent:           oklch(0.945 0.016 79);
+  --sidebar-accent-foreground: oklch(0.200 0.015 44);
+  --sidebar-border:           oklch(0.848 0.012 76);
+  --sidebar-ring:             oklch(0.490 0.014 52);
 }
 
 @theme inline {
-  --font-sans: 'Inter', 'Inter Fallback', system-ui, sans-serif;
-  --font-serif: 'Cormorant Garamond', 'Georgia', serif;
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback', monospace;
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
+  --font-sans:  var(--font-dm-sans, 'DM Sans', system-ui, sans-serif);
+  --font-serif: var(--font-cormorant, 'Cormorant Garamond', 'Georgia', serif);
+  --font-mono:  'Geist Mono', monospace;
+
+  --color-background:    var(--background);
+  --color-foreground:    var(--foreground);
+  --color-card:          var(--card);
   --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
+  --color-popover:       var(--popover);
   --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
+  --color-primary:       var(--primary);
   --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
+  --color-secondary:     var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
+  --color-muted:         var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
+  --color-accent:        var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
+  --color-destructive:   var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
+  --color-border:        var(--border);
+  --color-input:         var(--input);
+  --color-ring:          var(--ring);
+  --color-warning:       var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-success:       var(--success);
+  --color-success-foreground: var(--success-foreground);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --radius-sm: calc(var(--radius) - 2px);
-  --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 2px);
-  --radius-xl: calc(var(--radius) + 4px);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -89,7 +106,12 @@
   --color-sidebar-accent: var(--sidebar-accent);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-ring:   var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) - 2px);  /* 0px  — perfectly sharp */
+  --radius-md: var(--radius);               /* 2px  — barely there   */
+  --radius-lg: calc(var(--radius) + 2px);   /* 4px  — still crisp    */
+  --radius-xl: calc(var(--radius) + 6px);   /* 8px                   */
 }
 
 @layer base {
@@ -98,5 +120,28 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Base tracking for body copy */
+    letter-spacing: 0.01em;
   }
+
+  /* Editorial headings — tight, dramatic */
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+  }
+
+  /* Links inherit color by default in editorial layouts */
+  a {
+    text-decoration: none;
+  }
+}
+
+/* ── Utility: magazine-stamp badge ─────────────────────────────────────────── */
+.badge-stamp {
+  @apply text-[9px] uppercase tracking-[0.18em] font-medium font-sans;
+}
+
+/* ── Utility: eyebrow label above section headings ──────────────────────────── */
+.eyebrow {
+  @apply text-[10px] uppercase tracking-[0.2em] font-sans font-medium text-muted-foreground;
 }

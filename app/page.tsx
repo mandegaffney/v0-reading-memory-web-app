@@ -104,39 +104,42 @@ export default function HomePage() {
 
       {/* Hero / Stats */}
       <div className="border-b border-border">
-        <div className="max-w-6xl mx-auto px-6 py-16 md:py-24">
-          <div className="flex items-start justify-between gap-4">
-            <div className="max-w-2xl">
-              <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-balance leading-tight">
+        <div className="max-w-6xl mx-auto px-6 py-20 md:py-32">
+          <div className="flex items-start justify-between gap-6">
+            <div>
+              {/* Dramatic editorial headline — very large, tight leading */}
+              <h1 className="font-serif text-5xl md:text-7xl lg:text-8xl font-semibold tracking-tight leading-[0.92] text-balance">
                 Your personal
                 <br />
-                <span className="text-muted-foreground">book collection</span>
+                <em className="not-italic font-light text-muted-foreground">book collection</em>
               </h1>
-              <p className="text-lg text-muted-foreground mt-6 leading-relaxed">
+              <p className="text-sm text-muted-foreground mt-8 leading-relaxed max-w-lg">
                 {totalOwned} hardcover {totalOwned === 1 ? 'book' : 'books'} from{' '}
                 {totalAuthors} favorite {totalAuthors === 1 ? 'author' : 'authors'}.
                 Never buy duplicates again.
               </p>
             </div>
+            {/* Desktop Add Book — sharp, uppercase, editorial */}
             <button
               onClick={() => setAddBookOpen(true)}
-              className="shrink-0 hidden sm:inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-sm text-sm font-medium hover:bg-primary/90 transition-colors mt-2"
+              className="shrink-0 hidden sm:inline-flex items-center gap-2 px-5 py-2.5 bg-foreground text-background text-[10px] uppercase tracking-[0.18em] font-medium hover:opacity-75 transition-opacity mt-2"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               Add Book
             </button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-8 mt-12">
+          {/* Stats row — large serif numerals, eyebrow labels */}
+          <div className="flex flex-wrap items-end gap-10 md:gap-16 mt-14 pt-10 border-t border-border">
             <Stat value={totalOwned}        label="Books owned" />
             <Stat value={totalAuthors}      label="Favorite authors" />
-            <Stat value={preOrders.length}  label="Pre-orders available" />
-            {/* Mobile-only Add Book button */}
+            <Stat value={preOrders.length}  label="Pre-orders" />
+            {/* Mobile Add Book */}
             <button
               onClick={() => setAddBookOpen(true)}
-              className="sm:hidden inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-sm text-sm font-medium hover:bg-primary/90 transition-colors"
+              className="sm:hidden inline-flex items-center gap-2 px-5 py-2.5 bg-foreground text-background text-[10px] uppercase tracking-[0.18em] font-medium hover:opacity-75 transition-opacity"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               Add Book
             </button>
           </div>
@@ -152,20 +155,20 @@ export default function HomePage() {
           action={
             <Link
               href="/authors"
-              className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+              className="eyebrow text-muted-foreground hover:opacity-100 opacity-60 flex items-center gap-1.5 transition-opacity"
             >
-              View all <ArrowRight className="w-4 h-4" />
+              View all <ArrowRight className="w-3 h-3" />
             </Link>
           }
         >
           {hasImport ? (
             importedFavoriteAuthors.length >= 2 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-border">
                 {importedFavoriteAuthors.slice(0, 6).map((author, i) => (
                   <Link
                     key={i}
                     href={`/library?author=${encodeURIComponent(author.name)}`}
-                    className="group flex items-center gap-3 p-3 border border-border rounded-sm hover:bg-muted/50 hover:border-foreground/20 transition-colors"
+                    className="group flex items-center gap-3 p-4 bg-card hover:bg-secondary transition-colors"
                   >
                     <AuthorAvatar
                       name={author.name}
@@ -174,10 +177,10 @@ export default function HomePage() {
                       size="sm"
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="font-serif font-medium text-sm truncate group-hover:text-accent transition-colors">
+                      <p className="font-serif font-medium text-sm truncate group-hover:opacity-60 transition-opacity">
                         {author.name}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="eyebrow mt-0.5 opacity-50">
                         {author.bookCount} {author.bookCount === 1 ? 'book' : 'books'}
                       </p>
                     </div>
@@ -191,27 +194,27 @@ export default function HomePage() {
               />
             )
           ) : favoriteAuthors.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-border">
               {favoriteAuthors.slice(0, 6).map((author) => (
                 <Link
                   key={author.id}
                   href={`/library?author=${encodeURIComponent(author.name)}`}
-                  className="group flex items-center gap-4 p-2 -mx-2 rounded-sm hover:bg-muted/40 transition-colors"
+                  className="group flex items-center gap-4 p-4 bg-card hover:bg-secondary transition-colors"
                 >
-                  <div className="relative w-16 h-16 rounded-full overflow-hidden bg-muted shrink-0">
+                  <div className="relative w-14 h-14 rounded-full overflow-hidden bg-muted shrink-0 ring-1 ring-border">
                     <Image
                       src={author.imageUrl}
                       alt={author.name}
                       fill
                       className="object-cover"
-                      sizes="64px"
+                      sizes="56px"
                     />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-serif font-medium truncate group-hover:text-accent transition-colors">
+                    <p className="font-serif font-medium truncate group-hover:opacity-60 transition-opacity">
                       {author.name}
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="eyebrow mt-0.5 opacity-50">
                       {author.booksOwned} {author.booksOwned === 1 ? 'book' : 'books'}
                     </p>
                   </div>
@@ -300,9 +303,9 @@ export default function HomePage() {
           action={
             <Link
               href="/library"
-              className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+              className="eyebrow text-muted-foreground hover:opacity-100 opacity-60 flex items-center gap-1.5 transition-opacity"
             >
-              View all <ArrowRight className="w-4 h-4" />
+              View all <ArrowRight className="w-3 h-3" />
             </Link>
           }
         >
@@ -386,8 +389,10 @@ export default function HomePage() {
 function Stat({ value, label }: { value: number; label: string }) {
   return (
     <div>
-      <p className="font-serif text-3xl md:text-4xl font-semibold">{value}</p>
-      <p className="text-sm text-muted-foreground mt-1">{label}</p>
+      {/* Large editorial numeral */}
+      <p className="font-serif text-4xl md:text-5xl font-light leading-none">{value}</p>
+      {/* Eyebrow label — uppercase, wide tracking */}
+      <p className="eyebrow mt-2">{label}</p>
     </div>
   );
 }

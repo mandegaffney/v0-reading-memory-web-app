@@ -91,18 +91,18 @@ function LibraryContent() {
 
       {/* Page header */}
       <div className="border-b border-border mt-6">
-        <div className="max-w-6xl mx-auto px-6 py-10 flex items-start justify-between gap-4">
+        <div className="max-w-6xl mx-auto px-6 py-14 flex items-end justify-between gap-6">
           <div>
-            <h1 className="font-serif text-3xl md:text-4xl font-semibold tracking-tight">
+            <h1 className="font-serif text-4xl md:text-5xl font-semibold tracking-tight leading-[0.95]">
               {pageTitle}
             </h1>
-            <p className="text-muted-foreground mt-2">{pageSubtitle}</p>
+            <p className="text-sm text-muted-foreground mt-3">{pageSubtitle}</p>
           </div>
           <button
             onClick={() => setAddBookOpen(true)}
-            className="shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-sm text-sm font-medium hover:bg-primary/90 transition-colors"
+            className="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 bg-foreground text-background text-[10px] uppercase tracking-[0.18em] font-medium hover:opacity-75 transition-opacity"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5" />
             Add Book
           </button>
         </div>
