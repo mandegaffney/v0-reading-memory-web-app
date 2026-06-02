@@ -8,7 +8,8 @@ import { BookCard } from '@/components/book-card';
 import { AddBookModal } from '@/components/add-book-modal';
 import { usePreferences } from '@/lib/preferences';
 import { getOwnedBooks } from '@/lib/data';
-import { ArrowLeft, Search, BookOpen, X, Plus } from 'lucide-react';
+import { ArrowLeft, Search, BookOpen, X, Plus, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 function normalizeTitle(t: string): string {
   return t.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -19,7 +20,7 @@ function normalizeTitle(t: string): string {
 function LibraryContent() {
   const searchParams  = useSearchParams();
   const router        = useRouter();
-  const { dislikedBookIds, importedBooks } = usePreferences();
+  const { dislikedBookIds, importedBooks, removeBook } = usePreferences();
   const [addBookOpen, setAddBookOpen] = useState(false);
 
   const authorFromUrl = searchParams.get('author') ?? '';
@@ -65,6 +66,33 @@ function LibraryContent() {
     setQuery('');
     router.replace('/library');
   };
+
+  // ── Remove a book ──────────────────────────────────────────────────────────
+  // Two-step: first click shows a Sonner confirmation toast; the "Remove" action
+  // inside the toast actually calls the API. The toast auto-dismisses in 6s if
+  // the user does nothing, leaving the book in place.
+  function confirmRemove(book: { id?: string; title: string }) {
+    if (!book.id) {
+      toast.error('This book cannot be removed — no ID found.');
+      return;
+    }
+    const id = book.id;
+    toast(`Remove "${book.title.length > 45 ? book.title.slice(0, 45) + '…' : book.title}"?`, {
+      action: {
+        label: 'Remove',
+        onClick: async () => {
+          try {
+            await removeBook(id);
+            toast.success('Book removed from your library.');
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Failed to remove book.');
+          }
+        },
+      },
+      cancel: { label: 'Keep', onClick: () => {} },
+      duration: 6000,
+    });
+  }
 
   const pageTitle = authorFromUrl
     ? `Library — ${authorFromUrl}`
@@ -191,6 +219,7 @@ function LibraryContent() {
                   <th className="py-2.5 pr-4 font-medium text-muted-foreground hidden xl:table-cell">Total</th>
                   <th className="py-2.5 pr-4 font-medium text-muted-foreground hidden md:table-cell">Status</th>
                   <th className="py-2.5 font-medium text-muted-foreground hidden xl:table-cell">Order ID</th>
+                  <th className="py-2.5 w-8" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -222,6 +251,16 @@ function LibraryContent() {
                       ) : '—'}
                     </td>
                     <td className="py-3.5 text-muted-foreground hidden xl:table-cell font-mono text-xs">{book.orderId || '—'}</td>
+                    {/* Delete — always visible on mobile, revealed on hover on desktop */}
+                    <td className="py-3.5 text-right">
+                      <button
+                        onClick={() => confirmRemove(book)}
+                        title="Remove book"
+                        className="p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 sm:opacity-100 hover:text-destructive transition-all"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

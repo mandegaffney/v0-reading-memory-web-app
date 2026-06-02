@@ -70,6 +70,11 @@ interface Preferences {
    */
   addBook: (book: Omit<ImportedBook, 'id' | 'source'>) => Promise<void>;
 
+  /**
+   * DELETE /api/library/:id — permanently remove a book.
+   */
+  removeBook: (id: string) => Promise<void>;
+
   isBookImported: (title: string) => boolean;
 }
 
@@ -235,6 +240,15 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     await hydrateFromAPI();
   };
 
+  const removeBook = async (id: string): Promise<void> => {
+    const res = await fetch(`/api/library/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error ?? 'Failed to remove book.');
+    }
+    await hydrateFromAPI();
+  };
+
   const isBookImported = (title: string) =>
     importedBooks.some(b => normalizeTitle(b.title) === normalizeTitle(title));
 
@@ -247,7 +261,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       isBookDisliked, isAuthorDisliked,
       isLoading, loadError,
       importedBooks, importedAuthorNames, importedFavoriteAuthors,
-      replaceImportedBooks, clearImportedBooks, addBook, isBookImported,
+      replaceImportedBooks, clearImportedBooks, addBook, removeBook, isBookImported,
     }}>
       {children}
     </PreferencesContext.Provider>
