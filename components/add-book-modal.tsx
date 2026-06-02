@@ -18,6 +18,14 @@ import { Mic, Loader2, CheckCircle2, Search } from 'lucide-react';
 type Step = { type: 'form' } | { type: 'saving' } | { type: 'done'; title: string };
 type ListeningFor = 'title' | 'author' | null;
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function getSpeechRecognition(): (new () => SpeechRecognition) | null {
+  if (typeof window === 'undefined') return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition ?? null;
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -38,17 +46,19 @@ export function AddBookModal({ open, onOpenChange }: Props) {
   const [listeningFor,    setListeningFor]    = useState<ListeningFor>(null);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [isLookingUp,     setIsLookingUp]     = useState(false);
-  const recognitionRef = useRef<InstanceType<typeof window.SpeechRecognition> | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
 
-  // Detect Web Speech API support (client-only)
   useEffect(() => {
-    setSpeechSupported(
-      typeof window !== 'undefined' &&
-      ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
-    );
+    setSpeechSupported(getSpeechRecognition() !== null);
   }, []);
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
+  // Stop recognition when modal closes
+  useEffect(() => {
+    if (!open) stopListening();
+  }, [open]);
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
 
   function reset() {
     setStep({ type: 'form' });
@@ -58,50 +68,84 @@ export function AddBookModal({ open, onOpenChange }: Props) {
     stopListening();
   }
 
-  function handleClose(open: boolean) {
-    if (!open) reset();
-    onOpenChange(open);
+  function handleClose(val: boolean) {
+    if (!val) reset();
+    onOpenChange(val);
   }
 
-  // ── Voice input ────────────────────────────────────────────────────────────
+  // ── Voice ────────────────────────────────────────────────────────────────
 
   function stopListening() {
-    recognitionRef.current?.abort();
+    try { recognitionRef.current?.abort(); } catch {}
     recognitionRef.current = null;
     setListeningFor(null);
   }
 
   function startListening(field: 'title' | 'author') {
-    if (!speechSupported) return;
-    stopListening(); // cancel any active session first
+    stopListening(); // cancel any active session
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SR = (window.SpeechRecognition ?? (window as any).webkitSpeechRecognition) as typeof window.SpeechRecognition;
-    const rec = new SR();
-    rec.lang            = 'en-US';
-    rec.continuous      = false;
-    rec.interimResults  = false;
+    const SR = getSpeechRecognition();
+    if (!SR) {
+      toast.error('Voice input is not supported in this browser. Use Chrome or Edge.');
+      return;
+    }
+
+    let rec: SpeechRecognition;
+    try {
+      rec = new SR();
+    } catch {
+      toast.error('Could not start voice input.');
+      return;
+    }
+
+    rec.lang           = 'en-US';
+    rec.continuous     = false;
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+
+    rec.onstart = () => {
+      setListeningFor(field);
+    };
 
     rec.onresult = (e: SpeechRecognitionEvent) => {
-      const text = e.results[0][0].transcript.trim();
-      if (field === 'title')  setTitle(text);
-      if (field === 'author') setAuthor(text);
+      const text = e.results[0]?.[0]?.transcript?.trim() ?? '';
+      if (text) {
+        if (field === 'title')  setTitle(text);
+        if (field === 'author') setAuthor(text);
+      }
       setListeningFor(null);
     };
 
-    rec.onerror = () => {
+    rec.onerror = (e: SpeechRecognitionErrorEvent) => {
       setListeningFor(null);
-      toast.error('Voice input failed. Try again or type manually.');
+      if (e.error === 'not-allowed' || e.error === 'permission-denied') {
+        toast.error('Microphone permission denied. Allow microphone access in your browser settings.');
+      } else if (e.error === 'no-speech') {
+        // Silence — no toast, just reset quietly
+      } else if (e.error === 'network') {
+        toast.error('Voice input requires an internet connection.');
+      } else if (e.error !== 'aborted') {
+        toast.error(`Voice error: ${e.error}. Try again.`);
+      }
     };
 
-    rec.onend = () => setListeningFor(null);
+    rec.onend = () => {
+      setListeningFor(null);
+    };
 
     recognitionRef.current = rec;
-    rec.start();
-    setListeningFor(field);
+
+    try {
+      rec.start();
+    } catch (err) {
+      setListeningFor(null);
+      recognitionRef.current = null;
+      toast.error('Could not start microphone. Is another app using it?');
+      console.error('SpeechRecognition.start() threw:', err);
+    }
   }
 
-  // ── Google Books lookup ────────────────────────────────────────────────────
+  // ── Google Books lookup ───────────────────────────────────────────────────
 
   async function lookUpOnGoogleBooks() {
     if (!title.trim()) return;
@@ -121,7 +165,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
     }
   }
 
-  // ── Save ───────────────────────────────────────────────────────────────────
+  // ── Save ─────────────────────────────────────────────────────────────────
 
   async function handleSave() {
     if (!title.trim()) return;
@@ -144,7 +188,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
     }
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -167,14 +211,15 @@ export function AddBookModal({ open, onOpenChange }: Props) {
                   autoFocus
                   value={title}
                   onChange={e => setTitle(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && author && handleSave()}
                   placeholder="Book title"
-                  className="w-full px-3 py-2.5 pr-10 text-sm border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="w-full px-3 py-2.5 pr-11 text-sm border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
                 {speechSupported && (
                   <MicButton
                     active={listeningFor === 'title'}
-                    onToggle={() => listeningFor === 'title' ? stopListening() : startListening('title')}
+                    onToggle={() =>
+                      listeningFor === 'title' ? stopListening() : startListening('title')
+                    }
                   />
                 )}
               </div>
@@ -189,12 +234,14 @@ export function AddBookModal({ open, onOpenChange }: Props) {
                   value={author}
                   onChange={e => setAuthor(e.target.value)}
                   placeholder="Author name"
-                  className="w-full px-3 py-2.5 pr-10 text-sm border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="w-full px-3 py-2.5 pr-11 text-sm border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
                 {speechSupported && (
                   <MicButton
                     active={listeningFor === 'author'}
-                    onToggle={() => listeningFor === 'author' ? stopListening() : startListening('author')}
+                    onToggle={() =>
+                      listeningFor === 'author' ? stopListening() : startListening('author')
+                    }
                   />
                 )}
               </div>
@@ -226,9 +273,9 @@ export function AddBookModal({ open, onOpenChange }: Props) {
               </button>
             )}
 
-            {!speechSupported && (
+            {speechSupported === false && (
               <p className="text-xs text-muted-foreground">
-                Voice input is available in Chrome and Edge.
+                Voice input requires Chrome or Edge.
               </p>
             )}
 
@@ -278,13 +325,13 @@ function MicButton({ active, onToggle }: { active: boolean; onToggle: () => void
     <button
       type="button"
       onClick={onToggle}
+      title={active ? 'Stop listening' : 'Tap to speak'}
       className={[
-        'absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full transition-colors',
+        'absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 transition-colors',
         active
           ? 'text-destructive'
           : 'text-muted-foreground hover:text-foreground',
       ].join(' ')}
-      title={active ? 'Stop listening' : 'Tap to speak'}
     >
       <Mic className={['w-4 h-4', active ? 'animate-pulse' : ''].join(' ')} />
     </button>
@@ -294,7 +341,7 @@ function MicButton({ active, onToggle }: { active: boolean; onToggle: () => void
 function ListeningHint({ field }: { field: 'title' | 'author' }) {
   return (
     <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground animate-pulse">
-      Listening — say the {field === 'title' ? 'book title' : 'author\'s name'}…
+      🎙 Listening — say the {field === 'title' ? 'book title' : "author's name"}…
     </p>
   );
 }
