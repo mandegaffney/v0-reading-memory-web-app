@@ -1,7 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import Image from 'next/image';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -11,79 +10,52 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { usePreferences } from '@/lib/preferences';
-import { searchByISBN, searchByText, type GoogleBook } from '@/lib/google-books';
-import { Camera, ScanBarcode, BookOpen, Search, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { searchByText } from '@/lib/google-books';
+import { Mic, Loader2, CheckCircle2, Search } from 'lucide-react';
 
-// ── State machine ─────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-type Step =
-  | { type: 'choose' }
-  | { type: 'processing'; label: string }
-  | { type: 'results';    books: GoogleBook[] }
-  | { type: 'confirm';    book: GoogleBook }
-  | { type: 'manual';     prefill?: { title?: string; author?: string } }
-  | { type: 'saving' }
-  | { type: 'done';       title: string };
-
-// ── Scanning helpers (loaded lazily so they don't bloat the initial bundle) ──
-
-async function decodeBarcode(file: File): Promise<string | null> {
-  try {
-    const { BrowserMultiFormatReader } = await import('@zxing/browser');
-    const reader = new BrowserMultiFormatReader();
-    const url    = URL.createObjectURL(file);
-    try {
-      const result = await (reader as { decodeFromImageUrl(url: string): Promise<{ getText(): string }> })
-        .decodeFromImageUrl(url);
-      return result.getText();
-    } finally {
-      URL.revokeObjectURL(url);
-    }
-  } catch {
-    return null;
-  }
-}
-
-async function ocrImage(file: File): Promise<string> {
-  const { createWorker } = await import('tesseract.js');
-  const worker = await createWorker('eng', undefined, {
-    workerPath:  'https://cdn.jsdelivr.net/npm/tesseract.js@6/dist/worker.min.js',
-    langPath:    'https://tessdata.projectnaptha.com/4.0.0_fast',
-    corePath:    'https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core-simd-lstm.wasm.js',
-    logger:      () => {},
-    errorHandler: () => {},
-  });
-  try {
-    const { data: { text } } = await worker.recognize(file);
-    return text.trim();
-  } finally {
-    await worker.terminate();
-  }
-}
+type Step = { type: 'form' } | { type: 'saving' } | { type: 'done'; title: string };
+type ListeningFor = 'title' | 'author' | null;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface Props {
-  open:           boolean;
-  onOpenChange:   (open: boolean) => void;
+  open:         boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 export function AddBookModal({ open, onOpenChange }: Props) {
   const { addBook } = usePreferences();
-  const [step, setStep] = useState<Step>({ type: 'choose' });
-  const barcodeRef = useRef<HTMLInputElement>(null);
-  const coverRef   = useRef<HTMLInputElement>(null);
 
-  // Manual form state
-  const [manualTitle,  setManualTitle]  = useState('');
-  const [manualAuthor, setManualAuthor] = useState('');
-  const [manualGenre,  setManualGenre]  = useState('');
+  // Form state
+  const [step,   setStep]   = useState<Step>({ type: 'form' });
+  const [title,  setTitle]  = useState('');
+  const [author, setAuthor] = useState('');
+  const [genre,  setGenre]  = useState('');
+
+  // Voice state
+  const [listeningFor,    setListeningFor]    = useState<ListeningFor>(null);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [isLookingUp,     setIsLookingUp]     = useState(false);
+  const recognitionRef = useRef<InstanceType<typeof window.SpeechRecognition> | null>(null);
+
+  // Detect Web Speech API support (client-only)
+  useEffect(() => {
+    setSpeechSupported(
+      typeof window !== 'undefined' &&
+      ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
+    );
+  }, []);
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
 
   function reset() {
-    setStep({ type: 'choose' });
-    setManualTitle('');
-    setManualAuthor('');
-    setManualGenre('');
+    setStep({ type: 'form' });
+    setTitle('');
+    setAuthor('');
+    setGenre('');
+    stopListening();
   }
 
   function handleClose(open: boolean) {
@@ -91,336 +63,201 @@ export function AddBookModal({ open, onOpenChange }: Props) {
     onOpenChange(open);
   }
 
-  // ── Barcode flow ────────────────────────────────────────────────────────────
+  // ── Voice input ────────────────────────────────────────────────────────────
 
-  async function handleBarcodeFile(file: File) {
-    setStep({ type: 'processing', label: 'Reading barcode…' });
-    const code = await decodeBarcode(file);
-    if (!code) {
-      toast.error('Could not read a barcode from that image. Try a clearer photo.');
-      setStep({ type: 'choose' });
-      return;
-    }
-    setStep({ type: 'processing', label: `Searching for ISBN ${code}…` });
-    const book = await searchByISBN(code);
-    if (book) {
-      setStep({ type: 'confirm', book });
-    } else {
-      toast.error('No book found for that ISBN. Enter details manually.');
-      setStep({ type: 'manual' });
-    }
+  function stopListening() {
+    recognitionRef.current?.abort();
+    recognitionRef.current = null;
+    setListeningFor(null);
   }
 
-  // ── Cover / OCR flow ────────────────────────────────────────────────────────
+  function startListening(field: 'title' | 'author') {
+    if (!speechSupported) return;
+    stopListening(); // cancel any active session first
 
-  async function handleCoverFile(file: File) {
-    setStep({ type: 'processing', label: 'Reading cover text (this takes a few seconds)…' });
-    let text = '';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SR = (window.SpeechRecognition ?? (window as any).webkitSpeechRecognition) as typeof window.SpeechRecognition;
+    const rec = new SR();
+    rec.lang            = 'en-US';
+    rec.continuous      = false;
+    rec.interimResults  = false;
+
+    rec.onresult = (e: SpeechRecognitionEvent) => {
+      const text = e.results[0][0].transcript.trim();
+      if (field === 'title')  setTitle(text);
+      if (field === 'author') setAuthor(text);
+      setListeningFor(null);
+    };
+
+    rec.onerror = () => {
+      setListeningFor(null);
+      toast.error('Voice input failed. Try again or type manually.');
+    };
+
+    rec.onend = () => setListeningFor(null);
+
+    recognitionRef.current = rec;
+    rec.start();
+    setListeningFor(field);
+  }
+
+  // ── Google Books lookup ────────────────────────────────────────────────────
+
+  async function lookUpOnGoogleBooks() {
+    if (!title.trim()) return;
+    setIsLookingUp(true);
     try {
-      text = await ocrImage(file);
-    } catch {
-      toast.error('OCR failed. Enter details manually.');
-      setStep({ type: 'manual' });
-      return;
-    }
-
-    const query = text.split('\n').slice(0, 5).join(' ').replace(/[^a-zA-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
-    if (!query) {
-      toast.error('Could not read any text from the image. Enter details manually.');
-      setStep({ type: 'manual' });
-      return;
-    }
-
-    setStep({ type: 'processing', label: 'Searching Google Books…' });
-    const books = await searchByText(query);
-    if (books.length === 0) {
-      toast.error('No books matched. Enter details manually.');
-      setStep({ type: 'manual', prefill: { title: query.slice(0, 60) } });
-    } else if (books.length === 1) {
-      setStep({ type: 'confirm', book: books[0] });
-    } else {
-      setStep({ type: 'results', books });
+      const query = [title.trim(), author.trim()].filter(Boolean).join(' ');
+      const books = await searchByText(query);
+      if (books[0]) {
+        setTitle(books[0].title);
+        if (books[0].authors[0]) setAuthor(books[0].authors[0]);
+        toast.success('Details filled from Google Books');
+      } else {
+        toast.error('No match found — you can still save manually');
+      }
+    } finally {
+      setIsLookingUp(false);
     }
   }
 
-  // ── Save ────────────────────────────────────────────────────────────────────
+  // ── Save ───────────────────────────────────────────────────────────────────
 
-  async function saveBook(book: GoogleBook) {
+  async function handleSave() {
+    if (!title.trim()) return;
     setStep({ type: 'saving' });
     try {
       await addBook({
-        title:       book.title,
-        author:      book.authors[0] ?? '',
-        genre:       '',
+        title:       title.trim(),
+        author:      author.trim(),
+        genre:       genre.trim(),
         dateOrdered: '',
         unitPrice:   '',
         totalAmount: '',
         orderStatus: '',
         orderId:     '',
       });
-      setStep({ type: 'done', title: book.title });
+      setStep({ type: 'done', title: title.trim() });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save book.');
-      setStep({ type: 'confirm', book });
+      setStep({ type: 'form' });
     }
   }
 
-  async function saveManual() {
-    if (!manualTitle.trim()) return;
-    setStep({ type: 'saving' });
-    try {
-      await addBook({
-        title:       manualTitle.trim(),
-        author:      manualAuthor.trim(),
-        genre:       manualGenre.trim(),
-        dateOrdered: '',
-        unitPrice:   '',
-        totalAmount: '',
-        orderStatus: '',
-        orderId:     '',
-      });
-      setStep({ type: 'done', title: manualTitle.trim() });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to save book.');
-      setStep({ type: 'manual' });
-    }
-  }
-
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-serif text-xl">Add a Book</DialogTitle>
+          <DialogTitle className="font-serif text-xl font-semibold">Add a Book</DialogTitle>
         </DialogHeader>
 
-        {/* ── Step: choose ── */}
-        {step.type === 'choose' && (
-          <div className="space-y-3 pt-2">
-            {/* Barcode */}
-            <button
-              onClick={() => barcodeRef.current?.click()}
-              className="w-full flex items-center gap-4 p-4 border border-border rounded-sm hover:bg-muted/50 hover:border-foreground/30 transition-colors text-left"
-            >
-              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-                <ScanBarcode className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="font-medium text-sm">Scan Barcode</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Photo or upload of the book's back-cover barcode
-                </p>
-              </div>
-            </button>
-            <input
-              ref={barcodeRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={e => { const f = e.target.files?.[0]; if (f) handleBarcodeFile(f); e.target.value = ''; }}
-            />
-
-            {/* Cover photo / OCR */}
-            <button
-              onClick={() => coverRef.current?.click()}
-              className="w-full flex items-center gap-4 p-4 border border-border rounded-sm hover:bg-muted/50 hover:border-foreground/30 transition-colors text-left"
-            >
-              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-                <Camera className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="font-medium text-sm">Take Cover Photo</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  OCR reads the title text and searches Google Books
-                </p>
-              </div>
-            </button>
-            <input
-              ref={coverRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={e => { const f = e.target.files?.[0]; if (f) handleCoverFile(f); e.target.value = ''; }}
-            />
-
-            {/* Manual */}
-            <button
-              onClick={() => setStep({ type: 'manual' })}
-              className="w-full flex items-center gap-4 p-4 border border-border rounded-sm hover:bg-muted/50 hover:border-foreground/30 transition-colors text-left"
-            >
-              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-                <BookOpen className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="font-medium text-sm">Enter Manually</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Type title, author, and genre directly
-                </p>
-              </div>
-            </button>
-          </div>
-        )}
-
-        {/* ── Step: processing ── */}
-        {step.type === 'processing' && (
-          <div className="flex flex-col items-center gap-4 py-8">
-            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-            <p className="text-sm text-muted-foreground text-center">{step.label}</p>
-          </div>
-        )}
-
-        {/* ── Step: results (multiple matches from OCR search) ── */}
-        {step.type === 'results' && (
-          <div className="space-y-3 pt-2 max-h-96 overflow-y-auto">
-            <p className="text-sm text-muted-foreground">Select the correct book:</p>
-            {step.books.map(book => (
-              <button
-                key={book.id}
-                onClick={() => setStep({ type: 'confirm', book })}
-                className="w-full flex items-center gap-3 p-3 border border-border rounded-sm hover:bg-muted/50 hover:border-foreground/30 transition-colors text-left"
-              >
-                {book.coverUrl ? (
-                  <div className="relative w-10 h-14 shrink-0 overflow-hidden rounded-sm bg-muted">
-                    <Image src={book.coverUrl} alt="" fill className="object-cover" sizes="40px" />
-                  </div>
-                ) : (
-                  <div className="w-10 h-14 shrink-0 bg-muted rounded-sm flex items-center justify-center">
-                    <BookOpen className="w-4 h-4 text-muted-foreground" />
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <p className="text-sm font-medium line-clamp-2">{book.title}</p>
-                  {book.authors[0] && (
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">{book.authors[0]}</p>
-                  )}
-                </div>
-              </button>
-            ))}
-            <Button variant="outline" className="w-full mt-2" onClick={() => setStep({ type: 'manual' })}>
-              None of these — enter manually
-            </Button>
-          </div>
-        )}
-
-        {/* ── Step: confirm ── */}
-        {step.type === 'confirm' && (
+        {/* ── Form ── */}
+        {step.type === 'form' && (
           <div className="pt-2 space-y-5">
-            <div className="flex gap-4">
-              {step.book.coverUrl ? (
-                <div className="relative w-20 h-28 shrink-0 overflow-hidden rounded-sm bg-muted">
-                  <Image src={step.book.coverUrl} alt="" fill className="object-cover" sizes="80px" />
-                </div>
-              ) : (
-                <div className="w-20 h-28 shrink-0 bg-muted rounded-sm flex items-center justify-center">
-                  <BookOpen className="w-6 h-6 text-muted-foreground" />
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="font-serif font-semibold leading-snug">{step.book.title}</p>
-                {step.book.authors[0] && (
-                  <p className="text-sm text-muted-foreground mt-1">{step.book.authors[0]}</p>
-                )}
-                {step.book.isbn && (
-                  <p className="text-xs text-muted-foreground mt-1 font-mono">{step.book.isbn}</p>
+
+            {/* Title */}
+            <div className="space-y-2">
+              <label className="eyebrow">
+                Title <span className="text-destructive normal-case text-[10px]">required</span>
+              </label>
+              <div className="relative">
+                <input
+                  autoFocus
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && author && handleSave()}
+                  placeholder="Book title"
+                  className="w-full px-3 py-2.5 pr-10 text-sm border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+                {speechSupported && (
+                  <MicButton
+                    active={listeningFor === 'title'}
+                    onToggle={() => listeningFor === 'title' ? stopListening() : startListening('title')}
+                  />
                 )}
               </div>
+              {listeningFor === 'title' && <ListeningHint field="title" />}
             </div>
-            <p className="text-sm text-muted-foreground">Add this book to your library?</p>
-            <div className="flex gap-2">
-              <Button className="flex-1" onClick={() => saveBook(step.book)}>
-                Add to Library
-              </Button>
-              <Button variant="outline" onClick={() => setStep({ type: 'choose' })}>
-                Try Again
-              </Button>
-            </div>
-          </div>
-        )}
 
-        {/* ── Step: manual entry ── */}
-        {step.type === 'manual' && (
-          <div className="pt-2 space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Title <span className="text-destructive">*</span></label>
-              <input
-                autoFocus
-                value={manualTitle || step.prefill?.title || ''}
-                onChange={e => setManualTitle(e.target.value)}
-                onFocus={e => { if (!manualTitle && step.prefill?.title) setManualTitle(step.prefill.title); e.target.select(); }}
-                placeholder="Book title"
-                className="w-full px-3 py-2 text-sm border border-border rounded-sm bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              />
+            {/* Author */}
+            <div className="space-y-2">
+              <label className="eyebrow">Author</label>
+              <div className="relative">
+                <input
+                  value={author}
+                  onChange={e => setAuthor(e.target.value)}
+                  placeholder="Author name"
+                  className="w-full px-3 py-2.5 pr-10 text-sm border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+                {speechSupported && (
+                  <MicButton
+                    active={listeningFor === 'author'}
+                    onToggle={() => listeningFor === 'author' ? stopListening() : startListening('author')}
+                  />
+                )}
+              </div>
+              {listeningFor === 'author' && <ListeningHint field="author" />}
             </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Author</label>
+
+            {/* Genre */}
+            <div className="space-y-2">
+              <label className="eyebrow">Genre</label>
               <input
-                value={manualAuthor || step.prefill?.author || ''}
-                onChange={e => setManualAuthor(e.target.value)}
-                onFocus={e => { if (!manualAuthor && step.prefill?.author) setManualAuthor(step.prefill.author); }}
-                placeholder="Author name"
-                className="w-full px-3 py-2 text-sm border border-border rounded-sm bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Genre</label>
-              <input
-                value={manualGenre}
-                onChange={e => setManualGenre(e.target.value)}
+                value={genre}
+                onChange={e => setGenre(e.target.value)}
                 placeholder="e.g. Thriller, Literary Fiction"
-                className="w-full px-3 py-2 text-sm border border-border rounded-sm bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                className="w-full px-3 py-2.5 text-sm border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
 
-            {/* Search Google Books if title is filled */}
-            {manualTitle.trim() && (
+            {/* Google Books lookup */}
+            {title.trim() && (
               <button
-                onClick={async () => {
-                  setStep({ type: 'processing', label: 'Searching Google Books…' });
-                  const books = await searchByText(manualTitle.trim());
-                  if (books.length === 0) {
-                    toast.error('No results. Fill in details manually.');
-                    setStep({ type: 'manual', prefill: { title: manualTitle, author: manualAuthor } });
-                  } else if (books.length === 1) {
-                    setStep({ type: 'confirm', book: books[0] });
-                  } else {
-                    setStep({ type: 'results', books });
-                  }
-                }}
-                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors"
+                onClick={lookUpOnGoogleBooks}
+                disabled={isLookingUp}
+                className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
               >
-                <Search className="w-3 h-3" />
-                Search Google Books for &ldquo;{manualTitle.trim().slice(0, 40)}&rdquo;
+                {isLookingUp
+                  ? <Loader2 className="w-3 h-3 animate-spin" />
+                  : <Search className="w-3 h-3" />}
+                {isLookingUp ? 'Looking up…' : 'Look up on Google Books'}
               </button>
             )}
 
+            {!speechSupported && (
+              <p className="text-xs text-muted-foreground">
+                Voice input is available in Chrome and Edge.
+              </p>
+            )}
+
+            {/* Actions */}
             <div className="flex gap-2 pt-1">
-              <Button className="flex-1" disabled={!manualTitle.trim()} onClick={saveManual}>
+              <Button className="flex-1" disabled={!title.trim()} onClick={handleSave}>
                 Add to Library
               </Button>
-              <Button variant="outline" onClick={() => setStep({ type: 'choose' })}>
-                Back
+              <Button variant="outline" onClick={() => handleClose(false)}>
+                Cancel
               </Button>
             </div>
           </div>
         )}
 
-        {/* ── Step: saving ── */}
+        {/* ── Saving ── */}
         {step.type === 'saving' && (
-          <div className="flex flex-col items-center gap-4 py-8">
-            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          <div className="flex flex-col items-center gap-4 py-10">
+            <Loader2 className="w-7 h-7 animate-spin text-muted-foreground" />
             <p className="text-sm text-muted-foreground">Saving to your library…</p>
           </div>
         )}
 
-        {/* ── Step: done ── */}
+        {/* ── Done ── */}
         {step.type === 'done' && (
-          <div className="flex flex-col items-center gap-4 py-6 text-center">
+          <div className="flex flex-col items-center gap-4 py-8 text-center">
             <CheckCircle2 className="w-10 h-10 text-green-600" />
             <div>
-              <p className="font-serif font-semibold text-lg">{step.title}</p>
+              <p className="font-serif font-semibold text-xl leading-snug">{step.title}</p>
               <p className="text-sm text-muted-foreground mt-1">Added to your library</p>
             </div>
             <div className="flex gap-2 pt-2">
@@ -431,5 +268,33 @@ export function AddBookModal({ open, onOpenChange }: Props) {
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function MicButton({ active, onToggle }: { active: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={[
+        'absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full transition-colors',
+        active
+          ? 'text-destructive'
+          : 'text-muted-foreground hover:text-foreground',
+      ].join(' ')}
+      title={active ? 'Stop listening' : 'Tap to speak'}
+    >
+      <Mic className={['w-4 h-4', active ? 'animate-pulse' : ''].join(' ')} />
+    </button>
+  );
+}
+
+function ListeningHint({ field }: { field: 'title' | 'author' }) {
+  return (
+    <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground animate-pulse">
+      Listening — say the {field === 'title' ? 'book title' : 'author\'s name'}…
+    </p>
   );
 }
