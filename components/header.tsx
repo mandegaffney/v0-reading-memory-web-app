@@ -120,11 +120,8 @@ export function Header() {
         )}
         style={{ transitionDuration: '300ms', transitionTimingFunction: 'cubic-bezier(0.32,0,0.67,0)' }}
       >
-        {/* Drawer header */}
-        <div className="flex items-center justify-between h-14 px-6 border-b border-border shrink-0">
-          <span className="font-serif text-lg font-medium tracking-tight">
-            Reading Memory
-          </span>
+        {/* Drawer header — close button only, no logo */}
+        <div className="flex items-center justify-end h-14 px-6 border-b border-border shrink-0">
           <button
             onClick={closeDrawer}
             aria-label="Close menu"
@@ -150,8 +147,8 @@ export function Header() {
                 className={cn(
                   // Minimum 48px touch target
                   'flex items-center min-h-[56px]',
-                  // Editorial magazine style: large uppercase Cormorant
-                  'font-serif text-[2.5rem] leading-none font-medium uppercase tracking-[0.04em]',
+                  // Editorial style: large Cormorant, sentence case
+                  'font-serif text-[2.5rem] leading-none font-medium tracking-tight',
                   'transition-opacity duration-150',
                   isActive
                     ? 'text-foreground opacity-100'
