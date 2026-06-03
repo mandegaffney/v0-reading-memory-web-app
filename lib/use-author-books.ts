@@ -69,7 +69,9 @@ async function fetchForAuthor(
 
 export function useAuthorBooks(
   authorNames: string[],
-  ownedTitlesSet: Set<string>
+  ownedTitlesSet: Set<string>,
+  hiddenTitles: Set<string> = new Set(),
+  hiddenAuthors: Set<string> = new Set(),
 ): UseAuthorBooksResult {
   const [booksYouMightLike, setBooksYouMightLike] = useState<DiscoveryBook[]>([]);
   const [preOrders, setPreOrders]                 = useState<DiscoveryBook[]>([]);
@@ -149,5 +151,12 @@ export function useAuthorBooks(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authorsKey, ownedKey]);
 
-  return { booksYouMightLike, preOrders, isLoading };
+  // Filter hidden items without busting the fetch cache
+  const filteredPreOrders = preOrders.filter(b => {
+    if (hiddenTitles.has(normalizeTitle(b.title))) return false;
+    if (b.authorName && hiddenAuthors.has(b.authorName.toLowerCase())) return false;
+    return true;
+  });
+
+  return { booksYouMightLike, preOrders: filteredPreOrders, isLoading };
 }

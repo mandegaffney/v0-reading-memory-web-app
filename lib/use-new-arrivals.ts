@@ -83,6 +83,8 @@ export function useNewArrivals(
   importedBooks: ImportedBook[],
   authorNames: string[],
   ownedTitlesSet: Set<string>,
+  hiddenTitles: Set<string>,
+  hiddenAuthors: Set<string>,
 ): {
   arrivals: ArrivalBook[];
   isLoading: boolean;
@@ -248,5 +250,16 @@ export function useNewArrivals(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stableKey]);
 
-  return { arrivals, isLoading, error, updatedAt };
+  // Filter hidden books/authors from cached results without busting the cache
+  const filteredArrivals = useMemo(() => {
+    if (hiddenTitles.size === 0 && hiddenAuthors.size === 0) return arrivals;
+    return arrivals.filter(b => {
+      if (hiddenTitles.has(normalizeText(b.title))) return false;
+      if (b.authorName && hiddenAuthors.has(b.authorName.toLowerCase())) return false;
+      return true;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arrivals, [...hiddenTitles].join(','), [...hiddenAuthors].join(',')]);
+
+  return { arrivals: filteredArrivals, isLoading, error, updatedAt };
 }

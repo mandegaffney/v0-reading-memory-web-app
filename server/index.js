@@ -47,6 +47,7 @@ app.use(async (_req, _res, next) => {
 app.use('/api/library', require('./routes/library'));
 app.use('/api/authors', require('./routes/authors'));
 app.use('/api/import',  require('./routes/import'));
+app.use('/api/hidden',  require('./routes/hidden'));
 
 // ── Static frontend (Railway / self-hosted only) ───────────────────────────────
 // On Vercel the Next.js build is served natively — no static serving needed.

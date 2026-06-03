@@ -13,7 +13,8 @@ import { useAuthorBooks } from '@/lib/use-author-books';
 import { useNewArrivals } from '@/lib/use-new-arrivals';
 import { useAuthorPhotos } from '@/lib/use-author-photos';
 import { getFavoriteAuthors, getOwnedBooks } from '@/lib/data';
-import { ArrowRight, BookOpen } from 'lucide-react';
+import { ArrowRight, BookOpen, EyeOff } from 'lucide-react';
+import { toast } from 'sonner';
 
 function normalizeTitle(t: string): string {
   return t.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -21,7 +22,12 @@ function normalizeTitle(t: string): string {
 
 export default function HomePage() {
   // ── All hooks must be called unconditionally before any early return ──────
-  const { dislikedBookIds, dislikedAuthorIds, importedBooks, importedAuthorNames, importedFavoriteAuthors, isLoading, loadError } = usePreferences();
+  const {
+    dislikedBookIds, dislikedAuthorIds,
+    importedBooks, importedAuthorNames, importedFavoriteAuthors,
+    hiddenBooks, hiddenAuthors, hideBook, hideAuthor,
+    isLoading, loadError,
+  } = usePreferences();
 
   const favoriteAuthors = getFavoriteAuthors(dislikedAuthorIds);
   const ownedBooks      = getOwnedBooks(dislikedBookIds);
@@ -53,8 +59,20 @@ export default function HomePage() {
     return s;
   }, [ownedBooks, importedBooks]);
 
+  // Derived sets for filtering recommendations
+  const hiddenTitlesSet = useMemo(
+    () => new Set(hiddenBooks.map(b => b.title.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim())),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hiddenBooks.map(b => b.title).join('|')]
+  );
+  const hiddenAuthorsSet = useMemo(
+    () => new Set(hiddenAuthors.map(a => a.name.toLowerCase())),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hiddenAuthors.map(a => a.name).join('|')]
+  );
+
   // Pre-orders — author-based Open Library query (separate loading state)
-  const { preOrders, isLoading: isPreOrdersLoading } = useAuthorBooks(authorNamesToQuery, ownedTitlesSet);
+  const { preOrders, isLoading: isPreOrdersLoading } = useAuthorBooks(authorNamesToQuery, ownedTitlesSet, hiddenTitlesSet, hiddenAuthorsSet);
 
   // "Books You Might Like" — new arrivals matched to the user's genres + authors
   const {
@@ -62,7 +80,7 @@ export default function HomePage() {
     isLoading: isArrivalsLoading,
     error: arrivalsError,
     updatedAt,
-  } = useNewArrivals(importedBooks, authorNamesToQuery, ownedTitlesSet);
+  } = useNewArrivals(importedBooks, authorNamesToQuery, ownedTitlesSet, hiddenTitlesSet, hiddenAuthorsSet);
 
   const recentImported = importedBooks.slice(0, 10);
 
@@ -76,6 +94,40 @@ export default function HomePage() {
         </div>
       </div>
     );
+  }
+
+  // ── Hide helpers ────────────────────────────────────────────────────────────
+
+  function confirmHideBook(
+    title: string,
+    isbn: string | null,
+    doHide: (title: string, isbn?: string | null) => Promise<void>
+  ) {
+    toast(`Hide "${title.length > 40 ? title.slice(0, 40) + '…' : title}" from recommendations?`, {
+      action: {
+        label: 'Hide',
+        onClick: async () => {
+          try { await doHide(title, isbn); toast.success('Hidden from recommendations.'); }
+          catch { toast.error('Failed to hide. Try again.'); }
+        },
+      },
+      cancel: { label: 'Cancel', onClick: () => {} },
+      duration: 6000,
+    });
+  }
+
+  function confirmHideAuthor(name: string) {
+    toast(`Hide all books by "${name}" from recommendations?`, {
+      action: {
+        label: 'Hide',
+        onClick: async () => {
+          try { await hideAuthor(name); toast.success(`${name} hidden from recommendations.`); }
+          catch { toast.error('Failed to hide. Try again.'); }
+        },
+      },
+      cancel: { label: 'Cancel', onClick: () => {} },
+      duration: 6000,
+    });
   }
 
   if (loadError) {
@@ -141,26 +193,34 @@ export default function HomePage() {
             importedFavoriteAuthors.length >= 2 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-border">
                 {importedFavoriteAuthors.slice(0, 6).map((author, i) => (
-                  <Link
-                    key={i}
-                    href={`/library?author=${encodeURIComponent(author.name)}`}
-                    className="group flex items-center gap-3 p-4 bg-card hover:bg-secondary transition-colors"
-                  >
-                    <AuthorAvatar
-                      name={author.name}
-                      photoUrl={importedPhotos.get(author.name) ?? null}
-                      isLoading={photosLoading}
-                      size="sm"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="font-serif font-medium text-sm truncate group-hover:opacity-60 transition-opacity">
-                        {author.name}
-                      </p>
-                      <p className="eyebrow mt-0.5 opacity-50">
-                        {author.bookCount} {author.bookCount === 1 ? 'book' : 'books'}
-                      </p>
-                    </div>
-                  </Link>
+                  <div key={i} className="group flex items-center gap-3 p-4 bg-card hover:bg-secondary transition-colors">
+                    <Link
+                      href={`/library?author=${encodeURIComponent(author.name)}`}
+                      className="flex items-center gap-3 flex-1 min-w-0"
+                    >
+                      <AuthorAvatar
+                        name={author.name}
+                        photoUrl={importedPhotos.get(author.name) ?? null}
+                        isLoading={photosLoading}
+                        size="sm"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-serif font-medium text-sm truncate group-hover:opacity-60 transition-opacity">
+                          {author.name}
+                        </p>
+                        <p className="eyebrow mt-0.5 opacity-50">
+                          {author.bookCount} {author.bookCount === 1 ? 'book' : 'books'}
+                        </p>
+                      </div>
+                    </Link>
+                    <button
+                      onClick={() => confirmHideAuthor(author.name)}
+                      title="Hide author from recommendations"
+                      className="shrink-0 p-1 text-muted-foreground opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-opacity"
+                    >
+                      <EyeOff className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 ))}
               </div>
             ) : (
@@ -232,7 +292,11 @@ export default function HomePage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-10">
               {arrivals.slice(0, 8).map((book, i) => (
                 <div key={book.key} className={i >= 4 ? 'hidden md:block' : ''}>
-                  <DiscoveryCard book={book} badge="New This Week" />
+                  <DiscoveryCard
+                    book={book}
+                    badge="New This Week"
+                    onHide={() => confirmHideBook(book.title, null, hideBook)}
+                  />
                 </div>
               ))}
             </div>
@@ -263,7 +327,11 @@ export default function HomePage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-10">
                 {preOrders.slice(0, 8).map((book, i) => (
                   <div key={book.key} className={i >= 4 ? 'hidden md:block' : ''}>
-                    <DiscoveryCard book={book} preOrder />
+                    <DiscoveryCard
+                      book={book}
+                      preOrder
+                      onHide={() => confirmHideBook(book.title, null, hideBook)}
+                    />
                   </div>
                 ))}
               </div>

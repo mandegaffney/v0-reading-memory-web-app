@@ -1,20 +1,34 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { Header } from '@/components/header';
 import { PageHeader } from '@/components/layout';
 import { usePreferences } from '@/lib/preferences';
-import { getDislikedBooks, getDislikedAuthors } from '@/lib/data';
-import { ArrowLeft, RotateCcw } from 'lucide-react';
+import { ArrowLeft, RotateCcw, BookOpen, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
-export default function DislikedPage() {
-  const { dislikedBookIds, dislikedAuthorIds, unDislikeBook, unDislikeAuthor } = usePreferences();
+export default function HiddenPage() {
+  const { hiddenBooks, hiddenAuthors, unhideBook, unhideAuthor } = usePreferences();
+  const hasAnything = hiddenBooks.length > 0 || hiddenAuthors.length > 0;
 
-  const dislikedBooks = getDislikedBooks(dislikedBookIds);
-  const dislikedAuthors = getDislikedAuthors(dislikedAuthorIds);
-  const hasAnything = dislikedBooks.length > 0 || dislikedAuthors.length > 0;
+  async function handleUnhideBook(id: string, title: string) {
+    try {
+      await unhideBook(id);
+      toast.success(`"${title}" restored to recommendations.`);
+    } catch {
+      toast.error('Failed to unhide. Try again.');
+    }
+  }
+
+  async function handleUnhideAuthor(id: string, name: string) {
+    try {
+      await unhideAuthor(id);
+      toast.success(`${name} restored to recommendations.`);
+    } catch {
+      toast.error('Failed to unhide. Try again.');
+    }
+  }
 
   return (
     <div className="min-h-screen">
@@ -31,54 +45,41 @@ export default function DislikedPage() {
       </div>
 
       <PageHeader
-        title="Hidden from Recommendations"
-        subtitle="Books and authors you've marked as not interested. Restore any to bring them back."
+        title="Hidden"
+        subtitle="Books and authors suppressed from all recommendations. Restore any to bring them back."
       />
 
       <main className="max-w-6xl mx-auto px-6 py-12">
         {!hasAnything ? (
-          <div className="text-center py-24">
+          <div className="text-center py-24 space-y-2">
             <p className="text-muted-foreground">Nothing hidden yet.</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Use &ldquo;Not interested&rdquo; or &ldquo;Hide from recommendations&rdquo; on any book or author page.
+            <p className="text-sm text-muted-foreground">
+              Use &ldquo;Not interested&rdquo; on any recommendation card, or the hide icon on author cards.
             </p>
           </div>
         ) : (
           <div className="space-y-16">
-            {dislikedAuthors.length > 0 && (
+
+            {/* ── Hidden Authors ── */}
+            {hiddenAuthors.length > 0 && (
               <section>
-                <h2 className="font-serif text-2xl font-semibold tracking-tight mb-8">
-                  Hidden Authors
+                <h2 className="font-serif text-3xl font-semibold tracking-tight mb-8">
+                  Hidden authors
                 </h2>
                 <div className="divide-y divide-border">
-                  {dislikedAuthors.map(author => (
-                    <div key={author.id} className="flex items-center gap-6 py-6">
-                      <Link href={`/author/${author.id}`} className="shrink-0">
-                        <div className="relative w-12 h-12 rounded-full overflow-hidden bg-muted">
-                          <Image
-                            src={author.imageUrl}
-                            alt={author.name}
-                            fill
-                            className="object-cover grayscale"
-                            sizes="48px"
-                          />
-                        </div>
-                      </Link>
-                      <div className="flex-1 min-w-0">
-                        <Link href={`/author/${author.id}`} className="hover:text-accent transition-colors">
-                          <h3 className="font-serif font-medium truncate">{author.name}</h3>
-                        </Link>
-                        <p className="text-sm text-muted-foreground">
-                          {author.booksOwned} {author.booksOwned === 1 ? 'book' : 'books'} owned
-                        </p>
+                  {hiddenAuthors.map(author => (
+                    <div key={author.id} className="flex items-center gap-4 py-4">
+                      <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0">
+                        <User className="w-4 h-4 text-muted-foreground" />
                       </div>
+                      <p className="font-serif font-medium flex-1 min-w-0 truncate">{author.name}</p>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => unDislikeAuthor(author.id)}
+                        onClick={() => handleUnhideAuthor(author.id, author.name)}
                         className="shrink-0"
                       >
-                        <RotateCcw className="w-4 h-4 mr-2" />
+                        <RotateCcw className="w-3.5 h-3.5" />
                         Restore
                       </Button>
                     </div>
@@ -87,38 +88,28 @@ export default function DislikedPage() {
               </section>
             )}
 
-            {dislikedBooks.length > 0 && (
-              <section className={dislikedAuthors.length > 0 ? 'border-t border-border pt-16' : ''}>
-                <h2 className="font-serif text-2xl font-semibold tracking-tight mb-8">
-                  Hidden Books
+            {/* ── Hidden Books ── */}
+            {hiddenBooks.length > 0 && (
+              <section className={hiddenAuthors.length > 0 ? 'border-t border-border pt-16' : ''}>
+                <h2 className="font-serif text-3xl font-semibold tracking-tight mb-8">
+                  Hidden books
                 </h2>
                 <div className="divide-y divide-border">
-                  {dislikedBooks.map(book => (
-                    <div key={book.id} className="flex items-center gap-6 py-6">
-                      <Link href={`/book/${book.id}`} className="shrink-0">
-                        <div className="relative w-10 h-14 rounded-sm overflow-hidden bg-muted">
-                          <Image
-                            src={book.coverUrl}
-                            alt={book.title}
-                            fill
-                            className="object-cover grayscale"
-                            sizes="40px"
-                          />
-                        </div>
-                      </Link>
-                      <div className="flex-1 min-w-0">
-                        <Link href={`/book/${book.id}`} className="hover:text-accent transition-colors">
-                          <h3 className="font-serif font-medium leading-tight line-clamp-1">{book.title}</h3>
-                        </Link>
-                        <p className="text-sm text-muted-foreground">{book.authorName}</p>
+                  {hiddenBooks.map(book => (
+                    <div key={book.id} className="flex items-center gap-4 py-4">
+                      <div className="w-8 h-10 bg-muted flex items-center justify-center shrink-0">
+                        <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
                       </div>
+                      <p className="font-serif font-medium flex-1 min-w-0 leading-snug line-clamp-1">
+                        {book.title}
+                      </p>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => unDislikeBook(book.id)}
+                        onClick={() => handleUnhideBook(book.id, book.title)}
                         className="shrink-0"
                       >
-                        <RotateCcw className="w-4 h-4 mr-2" />
+                        <RotateCcw className="w-3.5 h-3.5" />
                         Restore
                       </Button>
                     </div>
@@ -126,6 +117,7 @@ export default function DislikedPage() {
                 </div>
               </section>
             )}
+
           </div>
         )}
       </main>

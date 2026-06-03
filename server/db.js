@@ -45,6 +45,21 @@ async function initSchema() {
   if (!client) return;
   await client.batch([
     {
+      sql: `CREATE TABLE IF NOT EXISTS hidden_books (
+        id         TEXT PRIMARY KEY,
+        title      TEXT NOT NULL,
+        isbn       TEXT,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch())
+      )`,
+    },
+    {
+      sql: `CREATE TABLE IF NOT EXISTS hidden_authors (
+        id         TEXT PRIMARY KEY,
+        name       TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch())
+      )`,
+    },
+    {
       sql: `CREATE TABLE IF NOT EXISTS books (
         id           TEXT PRIMARY KEY,
         title        TEXT NOT NULL,

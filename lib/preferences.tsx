@@ -29,6 +29,19 @@ export interface ImportedFavoriteAuthor {
   bookCount: number;
 }
 
+/** A book suppressed from all recommendation surfaces. */
+export interface HiddenBook {
+  id:    string;
+  title: string;
+  isbn:  string | null;
+}
+
+/** An author suppressed from all recommendation surfaces and Favorite Authors. */
+export interface HiddenAuthor {
+  id:   string;
+  name: string;
+}
+
 interface Preferences {
   // ── Persisted to localStorage ────────────────────────────────────────────
   dislikedBookIds:   string[];
@@ -74,6 +87,14 @@ interface Preferences {
    * DELETE /api/library/:id — permanently remove a book.
    */
   removeBook: (id: string) => Promise<void>;
+
+  // ── Recommendation suppression (Turso-backed) ─────────────────────────────
+  hiddenBooks:   HiddenBook[];
+  hiddenAuthors: HiddenAuthor[];
+  hideBook:      (title: string, isbn?: string | null) => Promise<void>;
+  unhideBook:    (id: string) => Promise<void>;
+  hideAuthor:    (name: string) => Promise<void>;
+  unhideAuthor:  (id: string) => Promise<void>;
 
   isBookImported: (title: string) => boolean;
 }
@@ -149,15 +170,21 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [isLoading,  setIsLoading]  = useState(true);
   const [loadError,  setLoadError]  = useState<string | null>(null);
 
+  // ── Hidden state (Turso-backed) ──────────────────────────────────────────
+  const [hiddenBooks,   setHiddenBooks]   = useState<HiddenBook[]>([]);
+  const [hiddenAuthors, setHiddenAuthors] = useState<HiddenAuthor[]>([]);
+
   /**
    * Fetch the current library state from the API and hydrate React state.
    * Called on mount and after every mutation (import, clear, add, delete).
    */
   const hydrateFromAPI = useCallback(async () => {
     try {
-      const [booksRes, authorsRes] = await Promise.all([
+      const [booksRes, authorsRes, hiddenBooksRes, hiddenAuthorsRes] = await Promise.all([
         fetch('/api/library'),
         fetch('/api/authors'),
+        fetch('/api/hidden/books'),
+        fetch('/api/hidden/authors'),
       ]);
 
       if (!booksRes.ok || !authorsRes.ok) {
@@ -170,6 +197,16 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       setImportedBooks(books);
       setImportedAuthorNames(extractAuthorNames(books));
       setImportedFavoriteAuthors(authors);
+
+      if (hiddenBooksRes.ok) {
+        const { books: hb }: { books: HiddenBook[] } = await hiddenBooksRes.json();
+        setHiddenBooks(hb);
+      }
+      if (hiddenAuthorsRes.ok) {
+        const { authors: ha }: { authors: HiddenAuthor[] } = await hiddenAuthorsRes.json();
+        setHiddenAuthors(ha);
+      }
+
       setLoadError(null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to connect to the server.';
@@ -249,6 +286,44 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     await hydrateFromAPI();
   };
 
+  // ── Recommendation suppression ────────────────────────────────────────────
+
+  async function hideBook(title: string, isbn?: string | null): Promise<void> {
+    const res = await fetch('/api/hidden/books', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, isbn: isbn ?? null }),
+    });
+    if (!res.ok) throw new Error('Failed to hide book.');
+    const { book }: { book: HiddenBook } = await res.json();
+    setHiddenBooks(prev => prev.some(b => b.id === book.id) ? prev : [...prev, book]);
+  }
+
+  async function unhideBook(id: string): Promise<void> {
+    const res = await fetch(`/api/hidden/books/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to unhide book.');
+    setHiddenBooks(prev => prev.filter(b => b.id !== id));
+  }
+
+  async function hideAuthor(name: string): Promise<void> {
+    const res = await fetch('/api/hidden/authors', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw new Error('Failed to hide author.');
+    const { author }: { author: HiddenAuthor } = await res.json();
+    setHiddenAuthors(prev => prev.some(a => a.id === author.id) ? prev : [...prev, author]);
+    // Also remove from Favorite Authors immediately
+    setImportedFavoriteAuthors(prev => prev.filter(a => a.name.toLowerCase() !== name.toLowerCase()));
+  }
+
+  async function unhideAuthor(id: string): Promise<void> {
+    const res = await fetch(`/api/hidden/authors/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to unhide author.');
+    setHiddenAuthors(prev => prev.filter(a => a.id !== id));
+    // Re-hydrate so the author re-appears in Favorite Authors if they qualify
+    await hydrateFromAPI();
+  }
+
   const isBookImported = (title: string) =>
     importedBooks.some(b => normalizeTitle(b.title) === normalizeTitle(title));
 
@@ -261,7 +336,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       isBookDisliked, isAuthorDisliked,
       isLoading, loadError,
       importedBooks, importedAuthorNames, importedFavoriteAuthors,
-      replaceImportedBooks, clearImportedBooks, addBook, removeBook, isBookImported,
+      replaceImportedBooks, clearImportedBooks, addBook, removeBook,
+      hiddenBooks, hiddenAuthors, hideBook, unhideBook, hideAuthor, unhideAuthor,
+      isBookImported,
     }}>
       {children}
     </PreferencesContext.Provider>

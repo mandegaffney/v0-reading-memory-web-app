@@ -7,9 +7,11 @@ interface DiscoveryCardProps {
   preOrder?: boolean;
   /** Badge text overlaid on the cover — e.g. "New This Week". */
   badge?:    string;
+  /** Called when the user taps "Not interested" — caller handles the hide logic. */
+  onHide?:   () => void;
 }
 
-export function DiscoveryCard({ book, preOrder = false, badge }: DiscoveryCardProps) {
+export function DiscoveryCard({ book, preOrder = false, badge, onHide }: DiscoveryCardProps) {
   const [imgError, setImgError] = useState(false);
   const badgeLabel = badge ?? (preOrder ? 'Pre-Order' : null);
 
@@ -65,6 +67,16 @@ export function DiscoveryCard({ book, preOrder = false, badge }: DiscoveryCardPr
       >
         Buy at Ladybird
       </a>
+
+      {/* Not interested — discreet, shown only when handler is provided */}
+      {onHide && (
+        <button
+          onClick={onHide}
+          className="mt-2 text-[9px] uppercase tracking-[0.12em] leading-none text-muted-foreground hover:text-foreground opacity-50 hover:opacity-100 transition-all"
+        >
+          Not interested
+        </button>
+      )}
     </div>
   );
 }
