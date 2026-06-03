@@ -11,18 +11,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { usePreferences } from '@/lib/preferences';
 import { searchByTitleAuthor, type GoogleBook } from '@/lib/google-books';
-import { Mic, Loader2, CheckCircle2, Search, ArrowLeft, MicOff } from 'lucide-react';
+import { Mic, Loader2, CheckCircle2, Search, ArrowLeft, MicOff, Check } from 'lucide-react';
 
 // ── State machine ─────────────────────────────────────────────────────────────
 
 type Step =
   | { type: 'form' }
   | { type: 'searching' }
-  | { type: 'results'; books: GoogleBook[]; noResults: boolean }
-  | { type: 'confirm'; book: GoogleBook }
-  | { type: 'editing'; book: GoogleBook; editTitle: string; editAuthor: string }
-  | { type: 'saving' }
-  | { type: 'done'; title: string };
+  | { type: 'results';  books: GoogleBook[] }
+  | { type: 'saving';   total: number; progress: number }
+  | { type: 'done';     count: number };
 
 // ── Speech Recognition ────────────────────────────────────────────────────────
 
@@ -43,16 +41,16 @@ interface Props {
 export function AddBookModal({ open, onOpenChange }: Props) {
   const { addBook } = usePreferences();
 
-  // Persistent search inputs and last results — kept across steps so Back works
-  const [searchTitle,   setSearchTitle]   = useState('');
-  const [searchAuthor,  setSearchAuthor]  = useState('');
-  const [lastResults,   setLastResults]   = useState<GoogleBook[]>([]);
+  // Search inputs persist across steps so Back restores them
+  const [searchTitle,  setSearchTitle]  = useState('');
+  const [searchAuthor, setSearchAuthor] = useState('');
 
-  const [step, setStep] = useState<Step>({ type: 'form' });
+  const [step,     setStep]     = useState<Step>({ type: 'form' });
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  // Voice state
-  const [listeningFor,    setListeningFor]    = useState<'title' | 'author' | null>(null);
-  const [voiceAvailable,  setVoiceAvailable]  = useState<boolean | null>(null);
+  // Voice
+  const [listeningFor,     setListeningFor]     = useState<'title' | 'author' | null>(null);
+  const [voiceAvailable,   setVoiceAvailable]   = useState<boolean | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recRef = useRef<any>(null);
@@ -71,8 +69,8 @@ export function AddBookModal({ open, onOpenChange }: Props) {
   function reset() {
     setSearchTitle('');
     setSearchAuthor('');
-    setLastResults([]);
     setStep({ type: 'form' });
+    setSelected(new Set());
     setPermissionDenied(false);
     abort();
   }
@@ -84,29 +82,27 @@ export function AddBookModal({ open, onOpenChange }: Props) {
 
   const canSearch = searchTitle.trim().length > 0 || searchAuthor.trim().length > 0;
 
-  // ── Voice input ───────────────────────────────────────────────────────────
+  // ── Voice ─────────────────────────────────────────────────────────────────
 
   function startListening(field: 'title' | 'author') {
     abort();
     const SR = getSR();
     if (!SR) { setVoiceAvailable(false); return; }
-
     let rec: SpeechRecognition;
-    try { rec = new SR(); }
-    catch { setVoiceAvailable(false); return; }
+    try { rec = new SR(); } catch { setVoiceAvailable(false); return; }
 
     rec.lang = 'en-US'; rec.continuous = false; rec.interimResults = false;
     rec.onstart  = () => setListeningFor(field);
     rec.onresult = (e: SpeechRecognitionEvent) => {
-      const text = e.results[0]?.[0]?.transcript?.trim() ?? '';
-      if (text) { if (field === 'title') setSearchTitle(text); else setSearchAuthor(text); }
+      const t = e.results[0]?.[0]?.transcript?.trim() ?? '';
+      if (t) { if (field === 'title') setSearchTitle(t); else setSearchAuthor(t); }
       setListeningFor(null);
     };
     rec.onerror = (e: SpeechRecognitionErrorEvent) => {
       setListeningFor(null);
       if (e.error === 'not-allowed' || e.error === 'permission-denied') setPermissionDenied(true);
       else if (e.error === 'service-not-allowed' || e.error === 'not-supported') setVoiceAvailable(false);
-      else if (e.error !== 'no-speech' && e.error !== 'aborted') toast.error('Voice input failed — type instead.');
+      else if (e.error !== 'no-speech' && e.error !== 'aborted') toast.error('Voice failed — type instead.');
     };
     rec.onend = () => setListeningFor(null);
     recRef.current = rec;
@@ -119,23 +115,58 @@ export function AddBookModal({ open, onOpenChange }: Props) {
     if (!canSearch) return;
     abort();
     setStep({ type: 'searching' });
+    setSelected(new Set());
     const books = await searchByTitleAuthor(searchTitle, searchAuthor);
-    const trimmed = books.slice(0, 3);
-    setLastResults(trimmed);
-    setStep({ type: 'results', books: trimmed, noResults: books.length === 0 });
+    setStep({ type: 'results', books });
   }
 
-  // ── Save ─────────────────────────────────────────────────────────────────
+  // ── Multi-select helpers ──────────────────────────────────────────────────
 
-  async function saveBook(title: string, author: string) {
-    setStep({ type: 'saving' });
-    try {
-      await addBook({ title, author, genre: '', dateOrdered: '', unitPrice: '', totalAmount: '', orderStatus: '', orderId: '' });
-      setStep({ type: 'done', title });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to save book.');
-      setStep({ type: 'form' });
+  function toggleBook(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll(books: GoogleBook[]) {
+    if (selected.size === books.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(books.map(b => b.id)));
     }
+  }
+
+  // ── Batch save ────────────────────────────────────────────────────────────
+
+  async function saveSelected(books: GoogleBook[]) {
+    const toSave = books.filter(b => selected.has(b.id));
+    if (toSave.length === 0) return;
+
+    setStep({ type: 'saving', total: toSave.length, progress: 0 });
+
+    let done = 0;
+    for (const book of toSave) {
+      try {
+        await addBook({
+          title:       book.title,
+          author:      book.authors[0] ?? '',
+          genre:       '',
+          dateOrdered: '',
+          unitPrice:   '',
+          totalAmount: '',
+          orderStatus: '',
+          orderId:     '',
+        });
+      } catch {
+        toast.error(`Failed to save "${book.title}" — skipped.`);
+      }
+      done++;
+      setStep({ type: 'saving', total: toSave.length, progress: done });
+    }
+
+    setStep({ type: 'done', count: done });
   }
 
   const showMic = voiceAvailable === true && !permissionDenied;
@@ -144,57 +175,67 @@ export function AddBookModal({ open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl font-semibold">Add a Book</DialogTitle>
         </DialogHeader>
 
-        {/* ── Form ─────────────────────────────────────────────────────────── */}
+        {/* ── Form ──────────────────────────────────────────────────────── */}
         {step.type === 'form' && (
           <div className="pt-2 space-y-5">
             {permissionDenied && (
               <div className="flex items-start gap-2.5 p-3 bg-muted border border-border text-xs">
                 <MicOff className="w-4 h-4 shrink-0 mt-0.5 text-muted-foreground" />
-                <p>Microphone blocked — click the 🔒 in your address bar, set Microphone to <strong>Allow</strong>, then reload.</p>
+                <p>Microphone blocked — click 🔒 in the address bar, set Microphone to <strong>Allow</strong>, then reload.</p>
               </div>
             )}
 
-            <div className="space-y-2">
-              <label className="eyebrow">Title</label>
-              <div className="relative">
-                <input
-                  autoFocus
-                  value={searchTitle}
-                  onChange={e => setSearchTitle(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && canSearch && handleSearch()}
-                  placeholder="e.g. The Secret History"
-                  className="w-full px-3 py-2.5 pr-11 text-sm border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-                {showMic && (
-                  <MicBtn active={listeningFor === 'title'} onToggle={() => listeningFor === 'title' ? abort() : startListening('title')} />
-                )}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <label className="eyebrow">Title</label>
+                <div className="relative">
+                  <input
+                    autoFocus
+                    value={searchTitle}
+                    onChange={e => setSearchTitle(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && canSearch && handleSearch()}
+                    placeholder="e.g. The Secret History"
+                    className="w-full px-3 py-2.5 pr-9 text-sm border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                  {showMic && (
+                    <MicBtn
+                      active={listeningFor === 'title'}
+                      onToggle={() => listeningFor === 'title' ? abort() : startListening('title')}
+                    />
+                  )}
+                </div>
+                {listeningFor === 'title' && <Hint field="title" />}
               </div>
-              {listeningFor === 'title' && <Hint field="title" />}
+
+              <div className="space-y-2">
+                <label className="eyebrow">Author</label>
+                <div className="relative">
+                  <input
+                    value={searchAuthor}
+                    onChange={e => setSearchAuthor(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && canSearch && handleSearch()}
+                    placeholder="e.g. Donna Tartt"
+                    className="w-full px-3 py-2.5 pr-9 text-sm border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                  {showMic && (
+                    <MicBtn
+                      active={listeningFor === 'author'}
+                      onToggle={() => listeningFor === 'author' ? abort() : startListening('author')}
+                    />
+                  )}
+                </div>
+                {listeningFor === 'author' && <Hint field="author" />}
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="eyebrow">Author</label>
-              <div className="relative">
-                <input
-                  value={searchAuthor}
-                  onChange={e => setSearchAuthor(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && canSearch && handleSearch()}
-                  placeholder="e.g. Donna Tartt"
-                  className="w-full px-3 py-2.5 pr-11 text-sm border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-                {showMic && (
-                  <MicBtn active={listeningFor === 'author'} onToggle={() => listeningFor === 'author' ? abort() : startListening('author')} />
-                )}
-              </div>
-              {listeningFor === 'author' && <Hint field="author" />}
-            </div>
-
-            <p className="text-xs text-muted-foreground">Fill in one or both fields, then search.</p>
+            <p className="text-xs text-muted-foreground">
+              Fill in one or both fields. Results come from Google Books and Open Library combined.
+            </p>
 
             <div className="flex gap-2 pt-1">
               <Button className="flex-1" disabled={!canSearch} onClick={handleSearch}>
@@ -206,30 +247,41 @@ export function AddBookModal({ open, onOpenChange }: Props) {
           </div>
         )}
 
-        {/* ── Searching ────────────────────────────────────────────────────── */}
+        {/* ── Searching ─────────────────────────────────────────────────── */}
         {step.type === 'searching' && (
           <div className="flex flex-col items-center gap-3 py-12">
             <Loader2 className="w-7 h-7 animate-spin text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">Searching…</p>
+            <p className="text-sm text-muted-foreground">Searching Google Books and Open Library…</p>
           </div>
         )}
 
-        {/* ── Results ──────────────────────────────────────────────────────── */}
+        {/* ── Results ───────────────────────────────────────────────────── */}
         {step.type === 'results' && (
           <div className="pt-2 space-y-4">
-            {step.noResults ? (
+            {step.books.length === 0 ? (
+              /* No results */
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
                   No results found — you can still add this book manually.
                 </p>
                 <div className="p-4 bg-muted border border-border">
-                  <p className="font-serif font-medium leading-snug">
-                    {searchTitle || <span className="text-muted-foreground italic">No title</span>}
-                  </p>
+                  <p className="font-serif font-medium">{searchTitle || '—'}</p>
                   {searchAuthor && <p className="text-xs text-muted-foreground mt-1">{searchAuthor}</p>}
                 </div>
                 <div className="flex gap-2">
-                  <Button className="flex-1" onClick={() => saveBook(searchTitle.trim() || 'Untitled', searchAuthor.trim())}>
+                  <Button
+                    className="flex-1"
+                    onClick={async () => {
+                      setStep({ type: 'saving', total: 1, progress: 0 });
+                      try {
+                        await addBook({ title: searchTitle.trim() || 'Untitled', author: searchAuthor.trim(), genre: '', dateOrdered: '', unitPrice: '', totalAmount: '', orderStatus: '', orderId: '' });
+                        setStep({ type: 'done', count: 1 });
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : 'Failed to save.');
+                        setStep({ type: 'form' });
+                      }
+                    }}
+                  >
                     Add to Library
                   </Button>
                   <Button variant="outline" onClick={() => setStep({ type: 'form' })}>
@@ -239,156 +291,114 @@ export function AddBookModal({ open, onOpenChange }: Props) {
                 </div>
               </div>
             ) : (
-              <div className="space-y-3">
-                <p className="eyebrow text-muted-foreground">Select the correct book</p>
-
-                {step.books.map(book => (
-                  <button
-                    key={book.id}
-                    onClick={() => setStep({ type: 'confirm', book })}
-                    className="w-full flex items-center gap-3 p-3 border border-border hover:bg-muted/50 hover:border-foreground/30 transition-colors text-left"
-                  >
-                    {/* Cover thumbnail */}
-                    <div className="w-10 h-14 shrink-0 bg-muted overflow-hidden">
-                      {book.coverUrl
-                        ? <img src={book.coverUrl} alt="" className="w-full h-full object-cover" />
-                        : <div className="w-full h-full" />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-serif font-medium text-sm leading-snug line-clamp-2">{book.title}</p>
-                      {book.authors[0] && (
-                        <p className="text-xs text-muted-foreground truncate mt-0.5">{book.authors[0]}</p>
-                      )}
-                      {book.publishYear && (
-                        <p className="text-xs text-muted-foreground mt-0.5">{book.publishYear}</p>
-                      )}
-                    </div>
-                  </button>
-                ))}
-
-                <div className="flex gap-2 pt-1">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => saveBook(searchTitle.trim() || 'Untitled', searchAuthor.trim())}
-                  >
-                    None of these — add manually
-                  </Button>
-                  <Button variant="outline" onClick={() => setStep({ type: 'form' })}>
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    Back
-                  </Button>
+              <>
+                {/* Header row: count + select-all + back */}
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    {step.books.length} result{step.books.length !== 1 ? 's' : ''}
+                    {selected.size > 0 && ` · ${selected.size} selected`}
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => toggleAll(step.books)}
+                      className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {selected.size === step.books.length ? 'Deselect all' : 'Select all'}
+                    </button>
+                    <button
+                      onClick={() => setStep({ type: 'form' })}
+                      className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                    >
+                      <ArrowLeft className="w-3 h-3" />
+                      Back
+                    </button>
+                  </div>
                 </div>
-              </div>
+
+                {/* Scrollable book list */}
+                <div className="overflow-y-auto max-h-[50vh] divide-y divide-border border border-border">
+                  {step.books.map(book => {
+                    const isSelected = selected.has(book.id);
+                    return (
+                      <button
+                        key={book.id}
+                        onClick={() => toggleBook(book.id)}
+                        className={[
+                          'w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors',
+                          isSelected ? 'bg-secondary' : 'hover:bg-muted/40',
+                        ].join(' ')}
+                      >
+                        {/* Checkbox */}
+                        <div className={[
+                          'w-4 h-4 shrink-0 border flex items-center justify-center transition-colors',
+                          isSelected ? 'bg-foreground border-foreground' : 'border-border',
+                        ].join(' ')}>
+                          {isSelected && <Check className="w-2.5 h-2.5 text-background" />}
+                        </div>
+
+                        {/* Cover */}
+                        <div className="w-8 h-11 shrink-0 bg-muted overflow-hidden">
+                          {book.coverUrl
+                            ? <img src={book.coverUrl} alt="" className="w-full h-full object-cover" />
+                            : null}
+                        </div>
+
+                        {/* Meta */}
+                        <div className="min-w-0 flex-1">
+                          <p className="font-serif text-sm font-medium leading-snug line-clamp-1">{book.title}</p>
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">
+                            {book.authors[0] ?? ''}
+                            {book.publishYear ? ` · ${book.publishYear}` : ''}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Add button */}
+                <Button
+                  className="w-full"
+                  disabled={selected.size === 0}
+                  onClick={() => saveSelected(step.books)}
+                >
+                  Add {selected.size > 0 ? `${selected.size} ` : ''}
+                  {selected.size === 1 ? 'Book' : 'Books'} to Library
+                </Button>
+              </>
             )}
           </div>
         )}
 
-        {/* ── Confirm ──────────────────────────────────────────────────────── */}
-        {step.type === 'confirm' && (
-          <div className="pt-2 space-y-5">
-            <div className="flex gap-4">
-              <div className="w-20 h-28 shrink-0 bg-muted overflow-hidden">
-                {step.book.coverUrl
-                  ? <img src={step.book.coverUrl} alt="" className="w-full h-full object-cover" />
-                  : <div className="w-full h-full" />}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-serif font-semibold text-lg leading-snug">{step.book.title}</p>
-                {step.book.authors[0] && (
-                  <p className="text-sm text-muted-foreground mt-1">{step.book.authors[0]}</p>
-                )}
-                {step.book.publishYear && (
-                  <p className="eyebrow text-muted-foreground mt-2">{step.book.publishYear}</p>
-                )}
-              </div>
-            </div>
-
-            <p className="text-sm text-muted-foreground">Add this book to your library?</p>
-
-            <div className="flex gap-2">
-              <Button
-                className="flex-1"
-                onClick={() => saveBook(step.book.title, step.book.authors[0] ?? '')}
-              >
-                Add to Library
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setStep({
-                  type: 'editing',
-                  book: step.book,
-                  editTitle:  step.book.title,
-                  editAuthor: step.book.authors[0] ?? '',
-                })}
-              >
-                Edit
-              </Button>
-              <Button variant="outline" onClick={() => setStep({ type: 'results', books: lastResults, noResults: lastResults.length === 0 })}>
-                <ArrowLeft className="w-3.5 h-3.5" />
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* ── Editing ──────────────────────────────────────────────────────── */}
-        {step.type === 'editing' && (
-          <div className="pt-2 space-y-4">
-            <p className="eyebrow text-muted-foreground">Edit details before saving</p>
-
-            <div className="space-y-2">
-              <label className="eyebrow">Title</label>
-              <input
-                autoFocus
-                value={step.editTitle}
-                onChange={e => setStep({ ...step, editTitle: e.target.value })}
-                className="w-full px-3 py-2.5 text-sm border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="eyebrow">Author</label>
-              <input
-                value={step.editAuthor}
-                onChange={e => setStep({ ...step, editAuthor: e.target.value })}
-                className="w-full px-3 py-2.5 text-sm border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-            </div>
-
-            <div className="flex gap-2 pt-1">
-              <Button
-                className="flex-1"
-                disabled={!step.editTitle.trim() && !step.editAuthor.trim()}
-                onClick={() => saveBook(step.editTitle.trim() || 'Untitled', step.editAuthor.trim())}
-              >
-                Add to Library
-              </Button>
-              <Button variant="outline" onClick={() => setStep({ type: 'confirm', book: step.book })}>
-                <ArrowLeft className="w-3.5 h-3.5" />
-                Back
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* ── Saving ───────────────────────────────────────────────────────── */}
+        {/* ── Saving ────────────────────────────────────────────────────── */}
         {step.type === 'saving' && (
           <div className="flex flex-col items-center gap-4 py-10">
             <Loader2 className="w-7 h-7 animate-spin text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">Saving to your library…</p>
+            <p className="text-sm text-muted-foreground">
+              Saving {step.progress} of {step.total}…
+            </p>
+            {/* Progress bar */}
+            <div className="w-48 h-0.5 bg-muted overflow-hidden">
+              <div
+                className="h-full bg-foreground transition-all duration-300"
+                style={{ width: `${(step.progress / step.total) * 100}%` }}
+              />
+            </div>
           </div>
         )}
 
-        {/* ── Done ─────────────────────────────────────────────────────────── */}
+        {/* ── Done ──────────────────────────────────────────────────────── */}
         {step.type === 'done' && (
           <div className="flex flex-col items-center gap-4 py-8 text-center">
             <CheckCircle2 className="w-10 h-10 text-green-600" />
             <div>
-              <p className="font-serif font-semibold text-xl leading-snug">{step.title}</p>
-              <p className="text-sm text-muted-foreground mt-1">Added to your library</p>
+              <p className="font-serif font-semibold text-xl">
+                {step.count === 1 ? '1 book' : `${step.count} books`} added
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">Saved to your library</p>
             </div>
             <div className="flex gap-2 pt-2">
-              <Button onClick={reset}>Add Another</Button>
+              <Button onClick={reset}>Add More</Button>
               <Button variant="outline" onClick={() => handleClose(false)}>Done</Button>
             </div>
           </div>
@@ -407,11 +417,11 @@ function MicBtn({ active, onToggle }: { active: boolean; onToggle: () => void })
       onClick={onToggle}
       title={active ? 'Stop listening' : 'Tap to speak'}
       className={[
-        'absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 transition-colors',
+        'absolute right-2 top-1/2 -translate-y-1/2 p-1.5 transition-colors',
         active ? 'text-destructive' : 'text-muted-foreground hover:text-foreground',
       ].join(' ')}
     >
-      <Mic className={['w-4 h-4', active ? 'animate-pulse' : ''].join(' ')} />
+      <Mic className={['w-3.5 h-3.5', active ? 'animate-pulse' : ''].join(' ')} />
     </button>
   );
 }
@@ -419,7 +429,7 @@ function MicBtn({ active, onToggle }: { active: boolean; onToggle: () => void })
 function Hint({ field }: { field: 'title' | 'author' }) {
   return (
     <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground animate-pulse">
-      🎙 Listening — say the {field === 'title' ? 'book title' : "author's name"}…
+      🎙 {field === 'title' ? 'Say the title…' : "Say the author's name…"}
     </p>
   );
 }
