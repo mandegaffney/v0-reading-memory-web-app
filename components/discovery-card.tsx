@@ -37,10 +37,10 @@ export function DiscoveryCard({ book, preOrder = false, badge, onHide }: Discove
           </div>
         )}
 
-        {/* Magazine-stamp badge — uppercase, tracked, black on white */}
+        {/* Magazine-stamp badge — flex-centred, 6px vertical / 12px horizontal */}
         {badgeLabel && (
-          <div className="absolute top-2.5 left-2.5 bg-background px-2 py-1">
-            <span className="badge-stamp text-foreground">
+          <div className="absolute top-2.5 left-2.5 bg-background inline-flex items-center justify-center px-3 py-1.5">
+            <span className="badge-stamp text-foreground leading-none">
               {badgeLabel}
             </span>
           </div>
@@ -58,12 +58,12 @@ export function DiscoveryCard({ book, preOrder = false, badge, onHide }: Discove
         <p className="text-xs text-muted-foreground mt-0.5">{book.publishYear}</p>
       )}
 
-      {/* Editorial buy link — sharp border, uppercase, black outline */}
+      {/* Editorial buy link — 24px horizontal, 14px vertical, flex-centred */}
       <a
         href={book.buyUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-auto pt-4 inline-flex items-center justify-center gap-1.5 text-[9px] font-sans font-medium uppercase tracking-[0.18em] leading-none text-foreground border border-foreground px-3 py-2 hover:bg-foreground hover:text-background transition-colors duration-150"
+        className="mt-auto pt-6 inline-flex items-center justify-center gap-1.5 text-[9px] font-sans font-medium uppercase tracking-[0.18em] leading-none text-foreground border border-foreground px-6 py-[14px] hover:bg-foreground hover:text-background transition-colors duration-150"
       >
         Buy at Ladybird
       </a>

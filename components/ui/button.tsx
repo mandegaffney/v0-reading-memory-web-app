@@ -42,12 +42,14 @@ const buttonVariants = cva(
           'text-foreground underline underline-offset-4 hover:opacity-60 p-0 h-auto tracking-normal text-xs uppercase-none font-normal',
       },
       size: {
-        default: 'h-9 px-5 py-2',
-        sm:      'h-8 px-4 py-1.5 text-[10px]',
-        lg:      'h-11 px-8 text-[12px]',
-        icon:    'size-9 rounded-none',
-        'icon-sm': 'size-8 rounded-none',
-        'icon-lg': 'size-10 rounded-none',
+        // Padding-only sizing — no fixed height, flex centering handles alignment.
+        // 14px top/bottom, 24px left/right for default.
+        default:   'py-[14px] px-6',
+        sm:        'py-2 px-4 text-[10px]',
+        lg:        'py-[18px] px-10 text-[12px]',
+        icon:      'size-9',
+        'icon-sm': 'size-8',
+        'icon-lg': 'size-10',
       },
     },
     defaultVariants: {
