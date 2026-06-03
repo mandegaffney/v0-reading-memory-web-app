@@ -5,10 +5,9 @@ import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/header';
 import { BookCard } from '@/components/book-card';
-import { AddBookModal } from '@/components/add-book-modal';
 import { usePreferences } from '@/lib/preferences';
 import { getOwnedBooks } from '@/lib/data';
-import { ArrowLeft, Search, BookOpen, X, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Search, BookOpen, X, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 function normalizeTitle(t: string): string {
@@ -21,7 +20,6 @@ function LibraryContent() {
   const searchParams  = useSearchParams();
   const router        = useRouter();
   const { dislikedBookIds, importedBooks, removeBook } = usePreferences();
-  const [addBookOpen, setAddBookOpen] = useState(false);
 
   const authorFromUrl = searchParams.get('author') ?? '';
   const [query, setQuery] = useState(authorFromUrl);
@@ -105,7 +103,6 @@ function LibraryContent() {
   return (
     <div className="min-h-screen">
       <Header />
-      <AddBookModal open={addBookOpen} onOpenChange={setAddBookOpen} />
 
       <div className="max-w-6xl mx-auto px-6 pt-6">
         <Link
@@ -119,20 +116,11 @@ function LibraryContent() {
 
       {/* Page header */}
       <div className="border-b border-border mt-6">
-        <div className="max-w-6xl mx-auto px-6 py-14 flex items-end justify-between gap-6">
-          <div>
-            <h1 className="font-serif text-4xl md:text-5xl font-semibold tracking-tight leading-[0.95]">
-              {pageTitle}
-            </h1>
-            <p className="text-sm text-muted-foreground mt-3">{pageSubtitle}</p>
-          </div>
-          <button
-            onClick={() => setAddBookOpen(true)}
-            className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-foreground text-background text-[10px] uppercase tracking-[0.18em] leading-none font-medium hover:opacity-75 transition-opacity"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Add Book
-          </button>
+        <div className="max-w-6xl mx-auto px-6 py-14">
+          <h1 className="font-serif text-4xl md:text-5xl font-semibold tracking-tight leading-[0.95]">
+            {pageTitle}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-3">{pageSubtitle}</p>
         </div>
       </div>
 

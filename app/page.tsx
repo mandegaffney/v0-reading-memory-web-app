@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Header } from '@/components/header';
@@ -8,13 +8,12 @@ import { Section, BookGrid, EmptyState } from '@/components/layout';
 import { BookCard } from '@/components/book-card';
 import { DiscoveryCard, DiscoveryCardSkeleton } from '@/components/discovery-card';
 import { AuthorAvatar } from '@/components/author-avatar';
-import { AddBookModal } from '@/components/add-book-modal';
 import { usePreferences } from '@/lib/preferences';
 import { useAuthorBooks } from '@/lib/use-author-books';
 import { useNewArrivals } from '@/lib/use-new-arrivals';
 import { useAuthorPhotos } from '@/lib/use-author-photos';
 import { getFavoriteAuthors, getOwnedBooks } from '@/lib/data';
-import { ArrowRight, BookOpen, Plus } from 'lucide-react';
+import { ArrowRight, BookOpen } from 'lucide-react';
 
 function normalizeTitle(t: string): string {
   return t.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -23,7 +22,6 @@ function normalizeTitle(t: string): string {
 export default function HomePage() {
   // ── All hooks must be called unconditionally before any early return ──────
   const { dislikedBookIds, dislikedAuthorIds, importedBooks, importedAuthorNames, importedFavoriteAuthors, isLoading, loadError } = usePreferences();
-  const [addBookOpen, setAddBookOpen] = useState(false);
 
   const favoriteAuthors = getFavoriteAuthors(dislikedAuthorIds);
   const ownedBooks      = getOwnedBooks(dislikedBookIds);
@@ -100,48 +98,26 @@ export default function HomePage() {
   return (
     <div className="min-h-screen">
       <Header />
-      <AddBookModal open={addBookOpen} onOpenChange={setAddBookOpen} />
 
       {/* Hero / Stats */}
       <div className="border-b border-border">
         <div className="max-w-6xl mx-auto px-6 py-20 md:py-32">
-          <div className="flex items-start justify-between gap-6">
-            <div>
-              {/* Dramatic editorial headline — very large, tight leading */}
-              <h1 className="font-serif text-5xl md:text-7xl lg:text-8xl font-semibold tracking-tight leading-[0.92] text-balance">
-                Your personal
-                <br />
-                <em className="not-italic font-light text-muted-foreground">book collection</em>
-              </h1>
-              <p className="text-sm text-muted-foreground mt-8 leading-relaxed max-w-lg">
-                {totalOwned} hardcover {totalOwned === 1 ? 'book' : 'books'} from{' '}
-                {totalAuthors} favorite {totalAuthors === 1 ? 'author' : 'authors'}.
-                Never buy duplicates again.
-              </p>
-            </div>
-            {/* Desktop Add Book — sharp, uppercase, editorial */}
-            <button
-              onClick={() => setAddBookOpen(true)}
-              className="shrink-0 hidden sm:inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-foreground text-background text-[10px] uppercase tracking-[0.18em] leading-none font-medium hover:opacity-75 transition-opacity mt-2"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Book
-            </button>
-          </div>
+          <h1 className="font-serif text-5xl md:text-7xl lg:text-8xl font-semibold tracking-tight leading-[0.92] text-balance">
+            Your personal
+            <br />
+            <em className="not-italic font-light text-muted-foreground">book collection</em>
+          </h1>
+          <p className="text-sm text-muted-foreground mt-8 leading-relaxed max-w-lg">
+            {totalOwned} hardcover {totalOwned === 1 ? 'book' : 'books'} from{' '}
+            {totalAuthors} favorite {totalAuthors === 1 ? 'author' : 'authors'}.
+            Never buy duplicates again.
+          </p>
 
-          {/* Stats row — large serif numerals, eyebrow labels */}
+          {/* Stats row */}
           <div className="flex flex-wrap items-end gap-10 md:gap-16 mt-14 pt-10 border-t border-border">
             <Stat value={totalOwned}        label="Books owned" />
             <Stat value={totalAuthors}      label="Favorite authors" />
             <Stat value={preOrders.length}  label="Pre-orders" />
-            {/* Mobile Add Book */}
-            <button
-              onClick={() => setAddBookOpen(true)}
-              className="sm:hidden inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-foreground text-background text-[10px] uppercase tracking-[0.18em] leading-none font-medium hover:opacity-75 transition-opacity"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Book
-            </button>
           </div>
         </div>
       </div>
