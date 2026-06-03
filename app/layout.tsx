@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { DM_Sans, Cormorant_Garamond } from 'next/font/google'
+import { DM_Sans, Cormorant_Garamond, Permanent_Marker } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { PreferencesProvider } from '@/lib/preferences'
 import { Toaster } from '@/components/ui/sonner'
@@ -22,8 +22,16 @@ const cormorant = Cormorant_Garamond({
   display: 'swap',
 });
 
+// Logo wordmark only — applied exclusively to "The Stack" in the header
+const permanentMarker = Permanent_Marker({
+  weight: '400',
+  subsets: ['latin'],
+  variable: '--font-marker',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
-  title: 'Reading Memory',
+  title: 'The Stack',
   description: 'Track your hardcover book collection, discover new releases from favorite authors, and never buy duplicates.',
   generator: 'v0.app',
   icons: {
@@ -44,7 +52,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${dmSans.variable} ${cormorant.variable} bg-background`}>
+    <html lang="en" className={`${dmSans.variable} ${cormorant.variable} ${permanentMarker.variable} bg-background`}>
       <body className="font-sans antialiased min-h-screen">
         <PreferencesProvider>
           {children}

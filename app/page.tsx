@@ -422,7 +422,7 @@ export default function HomePage() {
       <footer className="border-t border-border mt-16">
         <div className="max-w-6xl mx-auto px-6 py-8">
           <p className="text-sm text-muted-foreground">
-            Reading Memory — Track your hardcover collection
+            The Stack — Track your hardcover collection
           </p>
         </div>
       </footer>

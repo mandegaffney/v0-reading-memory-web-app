@@ -49,12 +49,13 @@ export function Header() {
       <header className="sticky top-0 z-50 bg-background border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
 
-          {/* Wordmark */}
+          {/* Wordmark — Permanent Marker, used exclusively here */}
           <Link
             href="/"
-            className="font-serif text-lg font-medium tracking-tight shrink-0 hover:opacity-70 transition-opacity"
+            className="shrink-0 hover:opacity-70 transition-opacity"
+            style={{ fontFamily: 'var(--font-marker)', fontSize: '1.5rem', lineHeight: 1 }}
           >
-            Reading Memory
+            The Stack
           </Link>
 
           {/* Right side: Add a Book + hamburger */}
@@ -181,7 +182,7 @@ export function Header() {
         {/* Drawer footer */}
         <div className="px-6 py-6 border-t border-border shrink-0">
           <p className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground">
-            Reading Memory — Track your hardcover collection
+            The Stack — Track your hardcover collection
           </p>
         </div>
       </div>

@@ -1,4 +1,4 @@
-# Reading Memory
+# The Stack
 
 Track your hardcover book collection, discover new arrivals matched to your taste, and never buy a duplicate again.
 
