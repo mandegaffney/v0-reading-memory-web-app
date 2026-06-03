@@ -174,8 +174,6 @@ export default function HomePage() {
             <Stat value={preOrders.length}  label="Pre-orders" />
           </div>
 
-          {/* Divider sits below the stats, not above */}
-          <hr className="border-0 border-t border-border mt-14" />
         </div>
       </div>
 
