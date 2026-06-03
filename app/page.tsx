@@ -151,26 +151,31 @@ export default function HomePage() {
     <div className="min-h-screen">
       <Header />
 
-      {/* Hero / Stats */}
+      {/* Hero / Stats — layout per Hero.html design */}
       <div className="border-b border-border">
-        <div className="max-w-6xl mx-auto px-6 py-20 md:py-32">
-          <h1 className="font-serif text-5xl md:text-7xl lg:text-8xl font-semibold tracking-tight leading-[0.92] text-balance">
+        <div className="max-w-[1560px] mx-auto px-7 md:px-14 py-16 md:py-24">
+
+          {/* Headline: clamp(56px, 10vw, 150px), weight 500/400, line-height 0.92 */}
+          <h1
+            className="font-serif font-medium leading-[0.92] tracking-[-0.01em] text-balance"
+            style={{ fontSize: 'clamp(56px, 10vw, 150px)' }}
+          >
             Your personal
             <br />
-            <em className="not-italic font-light text-muted-foreground">book collection</em>
+            <em className="not-italic font-normal text-muted-foreground">book collection</em>
           </h1>
-          <p className="text-sm text-muted-foreground mt-8 leading-relaxed max-w-lg">
-            {totalOwned} hardcover {totalOwned === 1 ? 'book' : 'books'} from{' '}
-            {totalAuthors} favorite {totalAuthors === 1 ? 'author' : 'authors'}.
-            Never buy duplicates again.
-          </p>
 
-          {/* Stats row */}
-          <div className="flex flex-wrap items-end gap-10 md:gap-16 mt-14 pt-10 border-t border-border">
+          {/* Stats — directly below headline (64px gap), no description in between */}
+          <div
+            className="flex flex-wrap items-start mt-16 gap-11 md:gap-[88px]"
+          >
             <Stat value={totalOwned}        label="Books owned" />
             <Stat value={totalAuthors}      label="Favorite authors" />
             <Stat value={preOrders.length}  label="Pre-orders" />
           </div>
+
+          {/* Divider sits below the stats, not above */}
+          <hr className="border-0 border-t border-border mt-14" />
         </div>
       </div>
 
@@ -433,10 +438,20 @@ export default function HomePage() {
 function Stat({ value, label }: { value: number; label: string }) {
   return (
     <div>
-      {/* Large editorial numeral */}
-      <p className="font-serif text-4xl md:text-5xl font-light leading-none">{value}</p>
-      {/* Eyebrow label — uppercase, wide tracking */}
-      <p className="eyebrow mt-2">{label}</p>
+      {/* clamp(48px, 5vw, 76px), weight 400, line-height 1 */}
+      <p
+        className="font-serif font-normal leading-none"
+        style={{ fontSize: 'clamp(48px, 5vw, 76px)' }}
+      >
+        {value}
+      </p>
+      {/* 15px, weight 500, tracking 0.18em, uppercase */}
+      <p
+        className="font-sans font-medium uppercase text-muted-foreground mt-3.5"
+        style={{ fontSize: '15px', letterSpacing: '0.18em' }}
+      >
+        {label}
+      </p>
     </div>
   );
 }
