@@ -10,11 +10,11 @@ import { cn } from '@/lib/utils';
 // ── Navigation items ──────────────────────────────────────────────────────────
 
 const NAV = [
-  { href: '/',         label: 'Home'             },
-  { href: '/library',  label: 'Library'          },
-  { href: '/authors',  label: 'Favorite Authors' },
-  { href: '/disliked', label: 'Hidden'           },
-  { href: '/settings', label: 'Import CSV'       },
+  { href: '/',         label: 'Home',             secondary: false },
+  { href: '/library',  label: 'Library',          secondary: false },
+  { href: '/authors',  label: 'Favorite Authors', secondary: false },
+  { href: '/disliked', label: 'Hidden',           secondary: true  },
+  { href: '/settings', label: 'Import CSV',       secondary: true  },
 ] as const;
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -132,33 +132,50 @@ export function Header() {
         </div>
 
         {/* Nav links */}
-        <nav className="flex-1 overflow-y-auto px-6 py-10 flex flex-col gap-1">
-          {NAV.map(({ href, label }) => {
-            const isActive =
-              href === '/'
-                ? pathname === '/'
-                : pathname === href || pathname.startsWith(href + '/');
+        <nav className="flex-1 overflow-y-auto px-6 py-10 flex flex-col">
+          {/* Primary links — large editorial serif */}
+          <div className="flex flex-col gap-1">
+            {NAV.filter(n => !n.secondary).map(({ href, label }) => {
+              const isActive = href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/');
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={closeDrawer}
+                  className={cn(
+                    'flex items-center min-h-[56px]',
+                    'font-serif text-[2.5rem] leading-none font-medium tracking-tight',
+                    'transition-opacity duration-150',
+                    isActive ? 'opacity-100' : 'opacity-25 hover:opacity-60',
+                  )}
+                >
+                  {label}
+                </Link>
+              );
+            })}
+          </div>
 
-            return (
-              <Link
-                key={href}
-                href={href}
-                onClick={closeDrawer}
-                className={cn(
-                  // Minimum 48px touch target
-                  'flex items-center min-h-[56px]',
-                  // Editorial style: large Cormorant, sentence case
-                  'font-serif text-[2.5rem] leading-none font-medium tracking-tight',
-                  'transition-opacity duration-150',
-                  isActive
-                    ? 'text-foreground opacity-100'
-                    : 'text-foreground opacity-25 hover:opacity-60',
-                )}
-              >
-                {label}
-              </Link>
-            );
-          })}
+          {/* Secondary links — smaller, separated by a hairline */}
+          <div className="flex flex-col gap-1 mt-8 pt-8 border-t border-border">
+            {NAV.filter(n => n.secondary).map(({ href, label }) => {
+              const isActive = pathname === href || pathname.startsWith(href + '/');
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={closeDrawer}
+                  className={cn(
+                    'flex items-center min-h-[44px]',
+                    'font-serif text-xl leading-none font-medium tracking-tight',
+                    'transition-opacity duration-150',
+                    isActive ? 'opacity-100' : 'opacity-25 hover:opacity-60',
+                  )}
+                >
+                  {label}
+                </Link>
+              );
+            })}
+          </div>
         </nav>
 
         {/* Drawer footer */}
