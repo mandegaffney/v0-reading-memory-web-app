@@ -153,7 +153,7 @@ export default function HomePage() {
 
       {/* Hero / Stats — layout per Hero.html design */}
       <div className="border-b border-border">
-        <div className="max-w-[1560px] mx-auto px-7 md:px-14 py-16 md:py-24">
+        <div className="max-w-[1560px] mx-auto px-6 py-16 md:py-24">
 
           {/* Headline: clamp(56px, 10vw, 150px), weight 500/400, line-height 0.92 */}
           <h1
