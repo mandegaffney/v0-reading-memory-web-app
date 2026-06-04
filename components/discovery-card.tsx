@@ -17,7 +17,7 @@ export function DiscoveryCard({ book, preOrder = false, badge, onHide }: Discove
 
   return (
     <div className="flex flex-col group">
-      {/* Cover — hero of the card, no heavy shadow */}
+      {/* Cover */}
       <div className="relative aspect-[2/3] bg-muted overflow-hidden mb-4">
         {book.coverUrl && !imgError ? (
           <Image
@@ -29,7 +29,6 @@ export function DiscoveryCard({ book, preOrder = false, badge, onHide }: Discove
             onError={() => setImgError(true)}
           />
         ) : (
-          /* No-cover placeholder — title in serif on warm surface */
           <div className="w-full h-full flex items-center justify-center p-4 bg-secondary">
             <span className="text-muted-foreground text-sm text-center font-serif italic leading-snug line-clamp-4">
               {book.title}
@@ -37,9 +36,9 @@ export function DiscoveryCard({ book, preOrder = false, badge, onHide }: Discove
           </div>
         )}
 
-        {/* Magazine-stamp badge — flex-centred, 6px vertical / 12px horizontal */}
+        {/* Badge — outlined: cream fill + black border */}
         {badgeLabel && (
-          <div className="absolute top-2.5 left-2.5 bg-background inline-flex items-center justify-center px-3 py-1.5">
+          <div className="absolute top-2.5 left-2.5 bg-background border border-foreground inline-flex items-center justify-center px-3 py-1.5">
             <span className="badge-stamp text-foreground leading-none">
               {badgeLabel}
             </span>
@@ -47,8 +46,8 @@ export function DiscoveryCard({ book, preOrder = false, badge, onHide }: Discove
         )}
       </div>
 
-      {/* Meta */}
-      <h3 className="font-serif text-base font-medium leading-snug line-clamp-2 mb-1 tracking-tight">
+      {/* Meta — larger title per design */}
+      <h3 className="font-serif text-xl font-medium leading-snug line-clamp-2 mb-1 tracking-tight">
         {book.title}
       </h3>
       {book.authorName && (
@@ -58,17 +57,17 @@ export function DiscoveryCard({ book, preOrder = false, badge, onHide }: Discove
         <p className="text-xs text-muted-foreground mt-0.5">{book.publishYear}</p>
       )}
 
-      {/* Editorial buy link — 24px horizontal, 14px vertical, flex-centred */}
+      {/* Buy button — full width per design */}
       <a
         href={book.buyUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-auto pt-6 inline-flex items-center justify-center gap-1.5 text-[9px] font-sans font-medium uppercase tracking-[0.18em] leading-none text-foreground border border-foreground px-6 py-[14px] hover:bg-foreground hover:text-background transition-colors duration-150"
+        className="mt-auto pt-6 w-full flex items-center justify-center text-[9px] font-sans font-medium uppercase tracking-[0.18em] leading-none text-foreground border border-foreground py-[14px] hover:bg-foreground hover:text-background transition-colors duration-150"
       >
         Buy at Ladybird
       </a>
 
-      {/* Not interested — discreet, shown only when handler is provided */}
+      {/* Not interested */}
       {onHide && (
         <button
           onClick={onHide}
@@ -85,10 +84,10 @@ export function DiscoveryCardSkeleton() {
   return (
     <div className="flex flex-col animate-pulse">
       <div className="aspect-[2/3] bg-muted mb-4" />
-      <div className="h-4 bg-muted mb-1.5 w-4/5" />
+      <div className="h-5 bg-muted mb-1.5 w-4/5" />
       <div className="h-3 bg-muted mb-1 w-3/5" />
       <div className="h-3 bg-muted mb-4 w-2/5" />
-      <div className="h-8 bg-muted w-full mt-auto" />
+      <div className="h-[43px] bg-muted w-full mt-auto" />
     </div>
   );
 }
