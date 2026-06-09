@@ -18,7 +18,7 @@ export function DiscoveryCard({ book, preOrder = false, badge, onHide }: Discove
   return (
     <div className="flex flex-col group">
       {/* Cover */}
-      <div className="relative aspect-[2/3] bg-muted overflow-hidden mb-4">
+      <div className="relative aspect-[2/3] bg-muted overflow-hidden">
         {book.coverUrl && !imgError ? (
           <Image
             src={book.coverUrl}
@@ -38,23 +38,23 @@ export function DiscoveryCard({ book, preOrder = false, badge, onHide }: Discove
 
         {/* Badge — outlined: cream fill + black border */}
         {badgeLabel && (
-          <div className="absolute top-2.5 left-2.5 bg-background border border-foreground inline-flex items-center justify-center px-3 py-1.5">
-            <span className="badge-stamp text-foreground leading-none">
+          <div className="absolute top-[22px] left-[22px] bg-background border border-foreground inline-flex items-center justify-center px-[18px] py-3">
+            <span className="text-[13px] font-sans font-semibold uppercase tracking-[0.16em] leading-none text-foreground">
               {badgeLabel}
             </span>
           </div>
         )}
       </div>
 
-      {/* Meta — larger title per design */}
-      <h3 className="font-serif text-xl font-medium leading-snug line-clamp-2 mb-1 tracking-tight">
+      {/* Meta */}
+      <h3 className="font-serif text-[28px] font-medium leading-[1.1] line-clamp-2 mb-1 tracking-[0.005em] mt-6">
         {book.title}
       </h3>
       {book.authorName && (
-        <p className="text-xs text-muted-foreground truncate tracking-wide">{book.authorName}</p>
+        <p className="text-base text-muted-foreground truncate mt-2.5">{book.authorName}</p>
       )}
       {book.publishYear && (
-        <p className="text-xs text-muted-foreground mt-0.5">{book.publishYear}</p>
+        <p className="text-base text-muted-foreground mt-1">{book.publishYear}</p>
       )}
 
       {/* Buy button — full width per design */}
@@ -62,7 +62,7 @@ export function DiscoveryCard({ book, preOrder = false, badge, onHide }: Discove
         href={book.buyUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-auto pt-6 w-full flex items-center justify-center text-[9px] font-sans font-medium uppercase tracking-[0.18em] leading-none text-foreground border border-foreground py-[14px] hover:bg-foreground hover:text-background transition-colors duration-150"
+        className="mt-5 w-full flex items-center justify-center text-[13px] font-sans font-semibold uppercase tracking-[0.16em] leading-none text-foreground border border-foreground py-[17px] hover:bg-foreground hover:text-background transition-colors duration-150"
       >
         Buy at Ladybird
       </a>
