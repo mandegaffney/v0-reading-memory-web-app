@@ -63,7 +63,16 @@ require('module').Module._initPaths();
 require(${JSON.stringify(nextBin)});
 `;
 
-  fs.writeFileSync(shimPath, shim, { mode: 0o755 });
+  // Resolve symlink so we write a new file, not through the symlink
+  const realShimPath = fs.realpathSync(shimPath);
+  // Only write if the target is NOT the next binary itself (avoid overwriting)
+  if (realShimPath === nextBin) {
+    // .bin/next is a symlink pointing at the real binary — write a new file instead
+    fs.unlinkSync(shimPath);
+    fs.writeFileSync(shimPath, shim, { mode: 0o755 });
+  } else {
+    fs.writeFileSync(realShimPath, shim, { mode: 0o755 });
+  }
   console.log('[fix-next-shim] Patched node_modules/.bin/next ✓');
 } catch (err) {
   // Non-fatal — a broken shim is better than a broken install
