@@ -200,13 +200,7 @@ function LibraryContent() {
               <thead>
                 <tr className="border-b border-border text-left">
                   <th className="py-2.5 pr-4 font-medium text-muted-foreground">Title</th>
-                  <th className="py-2.5 pr-4 font-medium text-muted-foreground hidden md:table-cell">Author</th>
-                  <th className="py-2.5 pr-4 font-medium text-muted-foreground hidden lg:table-cell">Genre</th>
-                  <th className="py-2.5 pr-4 font-medium text-muted-foreground hidden sm:table-cell">Date</th>
-                  <th className="py-2.5 pr-4 font-medium text-muted-foreground hidden sm:table-cell">Price</th>
-                  <th className="py-2.5 pr-4 font-medium text-muted-foreground hidden xl:table-cell">Total</th>
-                  <th className="py-2.5 pr-4 font-medium text-muted-foreground hidden md:table-cell">Status</th>
-                  <th className="py-2.5 font-medium text-muted-foreground hidden xl:table-cell">Order ID</th>
+                  <th className="py-2.5 pr-4 font-medium text-muted-foreground hidden sm:table-cell">Author</th>
                   <th className="py-2.5 w-8" />
                 </tr>
               </thead>
@@ -220,25 +214,11 @@ function LibraryContent() {
                         </div>
                         <span className="font-medium leading-snug line-clamp-2">{book.title}</span>
                       </div>
-                      <div className="md:hidden mt-1 pl-10 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                      <div className="sm:hidden mt-1 pl-10 text-xs text-muted-foreground">
                         {book.author && <span>{book.author}</span>}
-                        {book.dateOrdered && <span>{book.dateOrdered}</span>}
-                        {book.unitPrice && <span>{book.unitPrice}</span>}
                       </div>
                     </td>
-                    <td className="py-3.5 pr-4 text-muted-foreground hidden md:table-cell">{book.author || '—'}</td>
-                    <td className="py-3.5 pr-4 text-muted-foreground hidden lg:table-cell">{book.genre || '—'}</td>
-                    <td className="py-3.5 pr-4 text-muted-foreground hidden sm:table-cell whitespace-nowrap">{book.dateOrdered || '—'}</td>
-                    <td className="py-3.5 pr-4 text-muted-foreground hidden sm:table-cell font-mono text-xs">{book.unitPrice || '—'}</td>
-                    <td className="py-3.5 pr-4 text-muted-foreground hidden xl:table-cell font-mono text-xs">{book.totalAmount || '—'}</td>
-                    <td className="py-3.5 pr-4 hidden md:table-cell">
-                      {book.orderStatus ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-muted text-muted-foreground">
-                          {book.orderStatus}
-                        </span>
-                      ) : '—'}
-                    </td>
-                    <td className="py-3.5 text-muted-foreground hidden xl:table-cell font-mono text-xs">{book.orderId || '—'}</td>
+                    <td className="py-3.5 pr-4 text-muted-foreground hidden sm:table-cell">{book.author || '—'}</td>
                     {/* Delete — always visible on mobile, revealed on hover on desktop */}
                     <td className="py-3.5 text-right">
                       <button
