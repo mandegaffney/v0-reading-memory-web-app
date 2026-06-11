@@ -117,7 +117,7 @@ function LibraryContent() {
       {/* Page header */}
       <div className="border-b border-border mt-6">
         <div className="max-w-6xl mx-auto px-6 py-14">
-          <h1 className="font-serif text-4xl md:text-5xl font-semibold tracking-tight leading-[0.95]">
+          <h1 className="font-serif text-4xl md:text-5xl font-normal tracking-tight leading-[0.95]">
             {pageTitle}
           </h1>
           <p className="text-sm text-muted-foreground mt-3">{pageSubtitle}</p>

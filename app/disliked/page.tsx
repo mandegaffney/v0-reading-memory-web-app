@@ -63,7 +63,7 @@ export default function HiddenPage() {
             {/* ── Hidden Authors ── */}
             {hiddenAuthors.length > 0 && (
               <section>
-                <h2 className="font-serif text-3xl font-semibold tracking-tight mb-8">
+                <h2 className="font-serif text-3xl font-normal tracking-tight mb-8">
                   Hidden authors
                 </h2>
                 <div className="divide-y divide-border">
@@ -91,7 +91,7 @@ export default function HiddenPage() {
             {/* ── Hidden Books ── */}
             {hiddenBooks.length > 0 && (
               <section className={hiddenAuthors.length > 0 ? 'border-t border-border pt-16' : ''}>
-                <h2 className="font-serif text-3xl font-semibold tracking-tight mb-8">
+                <h2 className="font-serif text-3xl font-normal tracking-tight mb-8">
                   Hidden books
                 </h2>
                 <div className="divide-y divide-border">

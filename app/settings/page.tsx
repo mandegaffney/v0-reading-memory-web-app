@@ -347,7 +347,7 @@ export default function SettingsPage() {
 
           {/* ── Expected columns ──────────────────────────────────────────── */}
           <section className="border-t border-border pt-10">
-            <h3 className="font-serif text-lg font-semibold mb-4">Expected CSV format</h3>
+            <h3 className="font-serif text-lg font-normal mb-4">Expected CSV format</h3>
             <div className="overflow-x-auto">
               <table className="text-sm w-full border-collapse">
                 <thead>

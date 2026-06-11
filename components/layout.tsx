@@ -16,7 +16,7 @@ export function Section({ title, subtitle, children, className, action }: Sectio
       <div className="flex items-baseline justify-between mb-10 gap-6">
         <div>
           {/* Large serif headline — magazine editorial */}
-          <h2 className="font-serif text-3xl md:text-4xl font-semibold tracking-tight leading-none">
+          <h2 className="font-serif text-3xl md:text-4xl font-normal tracking-tight leading-none">
             {title}
           </h2>
           {subtitle && (
@@ -48,7 +48,7 @@ export function PageHeader({ title, subtitle, children }: PageHeaderProps) {
   return (
     <div className="pt-14 pb-10 border-b border-border">
       <div className="max-w-6xl mx-auto px-6">
-        <h1 className="font-serif text-5xl md:text-6xl font-semibold tracking-tight text-balance leading-[0.95]">
+        <h1 className="font-serif text-5xl md:text-6xl font-normal tracking-tight text-balance leading-[0.95]">
           {title}
         </h1>
         {subtitle && (

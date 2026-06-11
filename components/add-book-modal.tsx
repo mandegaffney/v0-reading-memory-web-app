@@ -177,7 +177,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-serif text-xl font-semibold">Add a Book</DialogTitle>
+          <DialogTitle>Add a Book</DialogTitle>
         </DialogHeader>
 
         {/* ── Form ──────────────────────────────────────────────────────── */}
@@ -392,7 +392,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
           <div className="flex flex-col items-center gap-4 py-8 text-center">
             <CheckCircle2 className="w-10 h-10 text-green-600" />
             <div>
-              <p className="font-serif font-semibold text-xl">
+              <p className="font-serif text-2xl font-normal">
                 {step.count === 1 ? '1 book' : `${step.count} books`} added
               </p>
               <p className="text-sm text-muted-foreground mt-1">Saved to your library</p>
