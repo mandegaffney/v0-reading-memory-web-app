@@ -4,8 +4,7 @@ import { useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Header } from '@/components/header';
-import { Section, BookGrid, EmptyState } from '@/components/layout';
-import { BookCard } from '@/components/book-card';
+import { Section, EmptyState } from '@/components/layout';
 import { DiscoveryCard, DiscoveryCardSkeleton } from '@/components/discovery-card';
 import { AuthorAvatar } from '@/components/author-avatar';
 import { usePreferences } from '@/lib/preferences';
@@ -13,7 +12,7 @@ import { useAuthorBooks } from '@/lib/use-author-books';
 import { useNewArrivals } from '@/lib/use-new-arrivals';
 import { useAuthorPhotos } from '@/lib/use-author-photos';
 import { getFavoriteAuthors, getOwnedBooks } from '@/lib/data';
-import { ArrowRight, BookOpen, EyeOff } from 'lucide-react';
+import { ArrowRight, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 function normalizeTitle(t: string): string {
@@ -82,9 +81,7 @@ export default function HomePage() {
     updatedAt,
   } = useNewArrivals(importedBooks, authorNamesToQuery, ownedTitlesSet, hiddenTitlesSet, hiddenAuthorsSet);
 
-  const recentImported = importedBooks.slice(0, 10);
-
-  // ── Early returns after all hooks ─────────────────────────────────────────
+  // ── Early returns after all hooks ─────────────────────────────────────
   if (isLoading) {
     return (
       <div className="min-h-screen">
@@ -96,7 +93,7 @@ export default function HomePage() {
     );
   }
 
-  // ── Hide helpers ────────────────────────────────────────────────────────────
+  // ── Hide helpers ──────────────────────────────────────────────────────────
 
   function confirmHideBook(
     title: string,
@@ -179,7 +176,7 @@ export default function HomePage() {
 
       <main className="max-w-6xl mx-auto px-6">
 
-        {/* ── Favorite Authors ──────────────────────────────── */}
+        {/* ── Favorite Authors ────────────────────── */}
         <Section
           title="Favorite Authors"
           subtitle={hasImport ? 'Authors with 2+ books in your library — click to browse' : 'Authors you read most — click to browse their books'}
@@ -268,7 +265,7 @@ export default function HomePage() {
           )}
         </Section>
 
-        {/* ── Books You Might Like ──────────────────────────── */}
+        {/* ── Books You Might Like ──────────────────── */}
         <Section
           title="Books You Might Like"
           subtitle={
@@ -311,7 +308,7 @@ export default function HomePage() {
           )}
         </Section>
 
-        {/* ── Pre-Orders ────────────────────────────────────── */}
+        {/* ── Pre-Orders ────────────────────── */}
         {(isPreOrdersLoading || preOrders.length > 0) && (
           <Section
             title="Pre-Orders from Authors You Read"
@@ -341,84 +338,6 @@ export default function HomePage() {
             )}
           </Section>
         )}
-
-        {/* ── Your Library preview ──────────────────────────── */}
-        <Section
-          title="Your Library"
-          subtitle={hasImport ? 'Recently imported hardcovers' : 'Recently purchased hardcovers'}
-          className="border-t border-border"
-          action={
-            <Link
-              href="/library"
-              className="eyebrow text-muted-foreground hover:opacity-100 opacity-60 flex items-center gap-1.5 transition-opacity"
-            >
-              View all <ArrowRight className="w-3 h-3" />
-            </Link>
-          }
-        >
-          {hasImport ? (
-            <div className="divide-y divide-border">
-              {recentImported.map((book, i) => (
-                <div key={i} className="flex items-center gap-4 py-3.5">
-                  <div className="w-8 h-10 bg-muted rounded-sm shrink-0 flex items-center justify-center">
-                    <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{book.title}</p>
-                    {book.author && (
-                      <p className="text-xs text-muted-foreground mt-0.5">{book.author}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-4 shrink-0">
-                    {book.unitPrice && (
-                      <span className="text-xs font-mono text-muted-foreground hidden sm:block">
-                        {book.unitPrice}
-                      </span>
-                    )}
-                    {book.dateOrdered && (
-                      <span className="text-xs text-muted-foreground hidden md:block">
-                        {book.dateOrdered}
-                      </span>
-                    )}
-                    {book.orderStatus && (
-                      <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full hidden sm:block">
-                        {book.orderStatus}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {importedBooks.length > 10 && (
-                <p className="text-xs text-muted-foreground pt-4">
-                  Showing 10 of {importedBooks.length} —{' '}
-                  <Link href="/library" className="underline underline-offset-4 hover:text-foreground transition-colors">
-                    view all
-                  </Link>
-                </p>
-              )}
-            </div>
-          ) : ownedBooks.length > 0 ? (
-            <BookGrid columns={5}>
-              {ownedBooks.slice(0, 10).map((book) => (
-                <BookCard key={book.id} book={book} showStatus={false} />
-              ))}
-            </BookGrid>
-          ) : (
-            <EmptyState
-              title="No books yet"
-              description="Upload a CSV from your order history to get started."
-              action={
-                <Link
-                  href="/settings"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-sm text-sm font-medium hover:bg-primary/90 transition-colors"
-                >
-                  <BookOpen className="w-4 h-4" />
-                  Import CSV
-                </Link>
-              }
-            />
-          )}
-        </Section>
 
       </main>
 
