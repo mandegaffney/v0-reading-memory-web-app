@@ -110,7 +110,7 @@ export default function BookPage({ params }: { params: Promise<{ id: string }> }
               )}
             </div>
 
-            <h1 className="font-serif text-3xl md:text-4xl font-semibold tracking-tight leading-tight">
+            <h1 className="font-serif text-3xl md:text-4xl font-normal tracking-tight leading-tight">
               {book.title}
             </h1>
 

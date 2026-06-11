@@ -65,7 +65,7 @@ function LibraryContent() {
     router.replace('/library');
   };
 
-  // ── Remove a book ──────────────────────────────────────────────────────────
+  // ── Remove a book ───────────────────────────────────────────────────
   // Two-step: first click shows a Sonner confirmation toast; the "Remove" action
   // inside the toast actually calls the API. The toast auto-dismisses in 6s if
   // the user does nothing, leaving the book in place.
@@ -117,7 +117,7 @@ function LibraryContent() {
       {/* Page header */}
       <div className="border-b border-border mt-6">
         <div className="max-w-6xl mx-auto px-6 py-14">
-          <h1 className="font-serif text-4xl md:text-5xl font-semibold tracking-tight leading-[0.95]">
+          <h1 className="font-serif text-4xl md:text-5xl font-normal tracking-tight leading-[0.95]">
             {pageTitle}
           </h1>
           <p className="text-sm text-muted-foreground mt-3">{pageSubtitle}</p>
@@ -126,7 +126,7 @@ function LibraryContent() {
 
       <main className="max-w-6xl mx-auto px-6 py-12">
 
-        {/* Search + active filter ────────────────────────────────── */}
+        {/* Search + active filter ───────────────────────────────── */}
         <div className="flex flex-col gap-3 mb-10 max-w-sm">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -168,7 +168,7 @@ function LibraryContent() {
           )}
         </div>
 
-        {/* Results ────────────────────────────────────────────────── */}
+        {/* Results ───────────────────────────────── */}
         {!hasResults ? (
           <div className="text-center py-16">
             {q ? (
@@ -258,7 +258,7 @@ function LibraryContent() {
   );
 }
 
-// ── Page shell with Suspense (required for useSearchParams) ──────────────────
+// ── Page shell with Suspense (required for useSearchParams) ────────────────────────
 
 export default function LibraryPage() {
   return (

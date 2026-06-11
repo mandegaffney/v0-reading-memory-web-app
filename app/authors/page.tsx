@@ -56,7 +56,7 @@ export default function AuthorsPage() {
 
         {/* ── Favorites ── */}
         <section>
-          <h2 className="font-serif text-2xl font-semibold tracking-tight mb-8">Favorite Authors</h2>
+          <h2 className="font-serif text-2xl font-normal tracking-tight mb-8">Favorite Authors</h2>
 
           {hasImport ? (
             importedFavoriteAuthors.length >= 2 ? (
@@ -114,7 +114,7 @@ export default function AuthorsPage() {
         {/* ── Also in Your Collection ── */}
         {staticOthers.length > 0 && (
           <section className="border-t border-border pt-16">
-            <h2 className="font-serif text-2xl font-semibold tracking-tight mb-8">Also in Your Collection</h2>
+            <h2 className="font-serif text-2xl font-normal tracking-tight mb-8">Also in Your Collection</h2>
             <AuthorList
               authors={staticOthers}
               dislikedAuthorIds={dislikedAuthorIds}

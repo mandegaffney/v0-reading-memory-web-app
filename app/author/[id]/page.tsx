@@ -67,7 +67,7 @@ export default function AuthorPage({ params }: { params: Promise<{ id: string }>
           <div className="flex-1">
             <div className="flex flex-wrap items-start gap-4 justify-between">
               <div>
-                <h1 className="font-serif text-3xl md:text-4xl font-semibold tracking-tight">
+                <h1 className="font-serif text-3xl md:text-4xl font-normal tracking-tight">
                   {author.name}
                 </h1>
                 <p className="text-muted-foreground mt-2">
