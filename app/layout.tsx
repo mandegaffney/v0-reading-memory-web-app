@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { DM_Sans, Cormorant_Garamond, Permanent_Marker } from 'next/font/google'
+import { DM_Sans, Cormorant_Garamond, Permanent_Marker, Instrument_Serif, Hanken_Grotesk, Space_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { PreferencesProvider } from '@/lib/preferences'
 import { Toaster } from '@/components/ui/sonner'
@@ -30,6 +30,31 @@ const permanentMarker = Permanent_Marker({
   display: 'swap',
 });
 
+// Editorial display: hero headlines, dialog titles, big statements
+const instrumentSerif = Instrument_Serif({
+  weight: '400',
+  style: ['normal', 'italic'],
+  subsets: ['latin'],
+  variable: '--font-instrument',
+  display: 'swap',
+});
+
+// Interface: body, buttons, metadata
+const hankenGrotesk = Hanken_Grotesk({
+  weight: ['400', '500', '600', '700'],
+  subsets: ['latin'],
+  variable: '--font-hanken',
+  display: 'swap',
+});
+
+// Detailing: kickers, index numbers, status tags, captions
+const spaceMono = Space_Mono({
+  weight: ['400', '700'],
+  subsets: ['latin'],
+  variable: '--font-space-mono',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   title: 'The Stack',
   description: 'Track your hardcover book collection, discover new releases from favorite authors, and never buy duplicates.',
@@ -52,7 +77,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${dmSans.variable} ${cormorant.variable} ${permanentMarker.variable} bg-background`}>
+    <html lang="en" className={`${dmSans.variable} ${cormorant.variable} ${permanentMarker.variable} ${instrumentSerif.variable} ${hankenGrotesk.variable} ${spaceMono.variable} bg-background`}>
       <body className="font-sans antialiased min-h-screen">
         <PreferencesProvider>
           {children}
