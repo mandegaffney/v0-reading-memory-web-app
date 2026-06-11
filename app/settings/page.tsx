@@ -51,7 +51,7 @@ export default function SettingsPage() {
   const [pendingFile, setPendingFile]   = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // ── Core parse + API import ──────────────────────────────────────────────
+  // ── Core parse + API import ───────────────────────────────────────
   // Called only after the user confirms (or immediately if the library is empty).
   // isParsing remains true until the API call completes so the UI shows progress
   // throughout the entire operation (CSV parse → API import → state hydration).
@@ -122,7 +122,7 @@ export default function SettingsPage() {
     [replaceImportedBooks]
   );
 
-  // ── File intake ──────────────────────────────────────────────────────────
+  // ── File intake ───────────────────────────────────────────────
   // If a library already exists, gate behind a confirmation dialog.
   // If the library is empty, parse immediately.
   const processFile = useCallback(
@@ -156,7 +156,7 @@ export default function SettingsPage() {
     if (inputRef.current) inputRef.current.value = '';
   }, []);
 
-  // ── Drag / file-input handlers ───────────────────────────────────────────
+  // ── Drag / file-input handlers ────────────────────────────────────────────
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
@@ -181,7 +181,7 @@ export default function SettingsPage() {
     <div className="min-h-screen">
       <Header />
 
-      {/* ── Confirmation dialog ───────────────────────────────────────────── */}
+      {/* ── Confirmation dialog ─────────────────────────────────── */}
       <Dialog open={!!pendingFile} onOpenChange={open => { if (!open) handleCancel(); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -224,7 +224,7 @@ export default function SettingsPage() {
       <main className="max-w-6xl mx-auto px-6 py-12">
         <div className="max-w-2xl space-y-10">
 
-          {/* ── Drop zone ─────────────────────────────────────────────────── */}
+          {/* ── Drop zone ───────────────────────────────────── */}
           <section>
             <div
               onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
@@ -275,7 +275,7 @@ export default function SettingsPage() {
             )}
           </section>
 
-          {/* ── Current import status ─────────────────────────────────────── */}
+          {/* ── Current import status ─────────────────────────────────── */}
           {hasLibrary && (
             <section className="border border-border rounded-sm p-6">
               <div className="flex items-start justify-between gap-4">
@@ -345,9 +345,9 @@ export default function SettingsPage() {
             </section>
           )}
 
-          {/* ── Expected columns ──────────────────────────────────────────── */}
+          {/* ── Expected columns ─────────────────────────────────── */}
           <section className="border-t border-border pt-10">
-            <h3 className="font-serif text-lg font-semibold mb-4">Expected CSV format</h3>
+            <h3 className="font-serif text-lg font-normal mb-4">Expected CSV format</h3>
             <div className="overflow-x-auto">
               <table className="text-sm w-full border-collapse">
                 <thead>

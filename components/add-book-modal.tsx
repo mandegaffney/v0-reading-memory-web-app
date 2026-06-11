@@ -13,7 +13,7 @@ import { usePreferences } from '@/lib/preferences';
 import { searchByTitleAuthor, type GoogleBook } from '@/lib/google-books';
 import { Mic, Loader2, CheckCircle2, Search, ArrowLeft, MicOff, Check } from 'lucide-react';
 
-// ── State machine ─────────────────────────────────────────────────────────────
+// ── State machine ──────────────────────────────────────────────
 
 type Step =
   | { type: 'form' }
@@ -22,7 +22,7 @@ type Step =
   | { type: 'saving';   total: number; progress: number }
   | { type: 'done';     count: number };
 
-// ── Speech Recognition ────────────────────────────────────────────────────────
+// ── Speech Recognition ───────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const getSR = (): (new () => SpeechRecognition) | null =>
@@ -31,7 +31,7 @@ const getSR = (): (new () => SpeechRecognition) | null =>
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     : ((window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition ?? null);
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// ── Component ─────────────────────────────────────────────────
 
 interface Props {
   open:         boolean;
@@ -58,7 +58,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
   useEffect(() => { setVoiceAvailable(getSR() !== null); }, []);
   useEffect(() => { if (!open) abort(); }, [open]);
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // ── Helpers ─────────────────────────────────────────────────
 
   function abort() {
     try { recRef.current?.abort(); } catch {}
@@ -82,7 +82,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
 
   const canSearch = searchTitle.trim().length > 0 || searchAuthor.trim().length > 0;
 
-  // ── Voice ─────────────────────────────────────────────────────────────────
+  // ── Voice ─────────────────────────────────────────────────
 
   function startListening(field: 'title' | 'author') {
     abort();
@@ -109,7 +109,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
     try { rec.start(); } catch { setVoiceAvailable(false); recRef.current = null; }
   }
 
-  // ── Search ────────────────────────────────────────────────────────────────
+  // ── Search ─────────────────────────────────────────────────
 
   async function handleSearch() {
     if (!canSearch) return;
@@ -120,7 +120,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
     setStep({ type: 'results', books });
   }
 
-  // ── Multi-select helpers ──────────────────────────────────────────────────
+  // ── Multi-select helpers ───────────────────────────────────────────
 
   function toggleBook(id: string) {
     setSelected(prev => {
@@ -138,7 +138,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
     }
   }
 
-  // ── Batch save ────────────────────────────────────────────────────────────
+  // ── Batch save ─────────────────────────────────────────────────
 
   async function saveSelected(books: GoogleBook[]) {
     const toSave = books.filter(b => selected.has(b.id));
@@ -171,16 +171,16 @@ export function AddBookModal({ open, onOpenChange }: Props) {
 
   const showMic = voiceAvailable === true && !permissionDenied;
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-serif text-xl font-semibold">Add a Book</DialogTitle>
+          <DialogTitle>Add a Book</DialogTitle>
         </DialogHeader>
 
-        {/* ── Form ──────────────────────────────────────────────────────── */}
+        {/* ── Form ──────────────────────────────────────────────── */}
         {step.type === 'form' && (
           <div className="pt-2 space-y-5">
             {permissionDenied && (
@@ -247,7 +247,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
           </div>
         )}
 
-        {/* ── Searching ─────────────────────────────────────────────────── */}
+        {/* ── Searching ────────────────────────────────────────── */}
         {step.type === 'searching' && (
           <div className="flex flex-col items-center gap-3 py-12">
             <Loader2 className="w-7 h-7 animate-spin text-muted-foreground" />
@@ -255,7 +255,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
           </div>
         )}
 
-        {/* ── Results ───────────────────────────────────────────────────── */}
+        {/* ── Results ──────────────────────────────────────────── */}
         {step.type === 'results' && (
           <div className="pt-2 space-y-4">
             {step.books.length === 0 ? (
@@ -370,7 +370,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
           </div>
         )}
 
-        {/* ── Saving ────────────────────────────────────────────────────── */}
+        {/* ── Saving ───────────────────────────────────────────── */}
         {step.type === 'saving' && (
           <div className="flex flex-col items-center gap-4 py-10">
             <Loader2 className="w-7 h-7 animate-spin text-muted-foreground" />
@@ -387,12 +387,12 @@ export function AddBookModal({ open, onOpenChange }: Props) {
           </div>
         )}
 
-        {/* ── Done ──────────────────────────────────────────────────────── */}
+        {/* ── Done ──────────────────────────────────────────────── */}
         {step.type === 'done' && (
           <div className="flex flex-col items-center gap-4 py-8 text-center">
             <CheckCircle2 className="w-10 h-10 text-green-600" />
             <div>
-              <p className="font-serif font-semibold text-xl">
+              <p className="font-serif text-2xl font-normal">
                 {step.count === 1 ? '1 book' : `${step.count} books`} added
               </p>
               <p className="text-sm text-muted-foreground mt-1">Saved to your library</p>
@@ -408,7 +408,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
   );
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── Sub-components ────────────────────────────────────────────────────
 
 function MicBtn({ active, onToggle }: { active: boolean; onToggle: () => void }) {
   return (
@@ -429,7 +429,7 @@ function MicBtn({ active, onToggle }: { active: boolean; onToggle: () => void })
 function Hint({ field }: { field: 'title' | 'author' }) {
   return (
     <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground animate-pulse">
-      🎙 {field === 'title' ? 'Say the title…' : "Say the author's name…"}
+      🎤 {field === 'title' ? 'Say the title…' : "Say the author's name…"}
     </p>
   );
 }
