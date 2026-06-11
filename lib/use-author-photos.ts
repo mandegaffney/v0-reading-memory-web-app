@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { fetchWikipediaAuthorPhoto } from './cover-fallback';
 
 /** Fetches one author OLID from the Open Library author-search endpoint. */
 async function fetchOlid(
@@ -51,9 +52,15 @@ export function useAuthorPhotos(authorNames: string[]): {
       const pairs = await Promise.all(
         authorNames.map(async name => {
           const olid = await fetchOlid(name, controller.signal);
-          const url  = olid
+          let url = olid
             ? `https://covers.openlibrary.org/a/olid/${olid}-M.jpg`
             : null;
+
+          // Fall back to Wikipedia's author photo when Open Library has none
+          if (!url) {
+            url = await fetchWikipediaAuthorPhoto(name, controller.signal);
+          }
+
           return [name, url] as [string, string | null];
         })
       );

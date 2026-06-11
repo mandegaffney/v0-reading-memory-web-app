@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import type { DiscoveryBook } from '@/lib/use-author-books';
+import { fetchGoogleBooksCover } from '@/lib/cover-fallback';
 
 interface DiscoveryCardProps {
   book:      DiscoveryBook;
@@ -13,15 +14,26 @@ interface DiscoveryCardProps {
 
 export function DiscoveryCard({ book, preOrder = false, badge, onHide }: DiscoveryCardProps) {
   const [imgError, setImgError] = useState(false);
+  const [fallbackCover, setFallbackCover] = useState<string | null>(null);
   const badgeLabel = badge ?? (preOrder ? 'Pre-Order' : null);
+
+  // Fall back to Google Books when Open Library has no cover for this title
+  useEffect(() => {
+    if (book.coverUrl) return;
+    const controller = new AbortController();
+    fetchGoogleBooksCover(book.title, book.authorName, controller.signal).then(setFallbackCover);
+    return () => controller.abort();
+  }, [book.coverUrl, book.title, book.authorName]);
+
+  const coverUrl = book.coverUrl ?? fallbackCover;
 
   return (
     <div className="flex flex-col h-full group">
       {/* Cover */}
       <div className="relative aspect-[2/3] bg-muted overflow-hidden">
-        {book.coverUrl && !imgError ? (
+        {coverUrl && !imgError ? (
           <Image
-            src={book.coverUrl}
+            src={coverUrl}
             alt={`Cover of ${book.title}`}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
