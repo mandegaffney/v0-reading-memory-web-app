@@ -15,7 +15,7 @@ import { useNewArrivals } from '@/lib/use-new-arrivals';
 import { useAuthorPhotos } from '@/lib/use-author-photos';
 import { fetchBookCover } from '@/lib/cover-fallback';
 import { getFavoriteAuthors, getOwnedBooks } from '@/lib/data';
-import { ArrowRight, EyeOff } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 function normalizeTitle(t: string): string {
@@ -246,10 +246,11 @@ export default function HomePage() {
           <div className="flex items-center gap-5">
             <button
               onClick={() => setAddBookOpen(true)}
-              className="whitespace-nowrap m-0 border-0 bg-transparent p-0 cursor-pointer pb-[3px] border-b-[1.5px] border-[#2B2926] transition-colors hover:text-[#9C5B3F] hover:border-[#9C5B3F]"
+              className="inline-flex items-center gap-2 whitespace-nowrap m-0 border-0 bg-transparent p-0 cursor-pointer pb-[3px] border-b-[1.5px] border-[#2B2926] transition-colors hover:text-[#9C5B3F] hover:border-[#9C5B3F]"
               style={{ fontFamily: 'var(--font-instrument), serif', fontSize: '28px', color: 'inherit' }}
             >
-              Add a book&nbsp;↗
+              Add a book
+              <ArrowUpRight className="w-6 h-6 shrink-0" strokeWidth={1.5} />
             </button>
             <Link
               href="/library"
