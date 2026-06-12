@@ -9,15 +9,15 @@ const { initSchema, initDB } = require('./db');
 const app  = express();
 const PORT = Number(process.env.PORT ?? 3001);
 
-// ── Middleware ─────────────────────────────────────────────────────────────────
+// ── Middleware ─────────────────────────────────────────────────────────────
 
 app.use(cors({
   origin:  process.env.CORS_ORIGIN ?? 'http://localhost:3000',
-  methods: ['GET', 'POST', 'DELETE'],
+  methods: ['GET', 'POST', 'PATCH', 'DELETE'],
 }));
 app.use(express.json({ limit: '10mb' }));
 
-// ── Lazy schema init ──────────────────────────────────────────────────────────
+// ── Lazy schema init ────────────────────────────────────────────────────────────────────────
 // Vercel cold starts: runs CREATE TABLE IF NOT EXISTS on first request.
 // Local dev: initDB() is called at startup instead (see bottom of file).
 
@@ -42,14 +42,14 @@ app.use(async (_req, _res, next) => {
   }
 });
 
-// ── API routes ─────────────────────────────────────────────────────────────────
+// ── API routes ─────────────────────────────────────────────────────────────────────
 
 app.use('/api/library', require('./routes/library'));
 app.use('/api/authors', require('./routes/authors'));
 app.use('/api/import',  require('./routes/import'));
 app.use('/api/hidden',  require('./routes/hidden'));
 
-// ── Static frontend (Railway / self-hosted only) ───────────────────────────────
+// ── Static frontend (Railway / self-hosted only) ──────────────────────────────────────
 // On Vercel the Next.js build is served natively — no static serving needed.
 
 if (process.env.SERVE_STATIC === 'true') {
@@ -61,18 +61,18 @@ if (process.env.SERVE_STATIC === 'true') {
   });
 }
 
-// ── Error handler ──────────────────────────────────────────────────────────────
+// ── Error handler ────────────────────────────────────────────────────────────────────────
 
 app.use((err, _req, res, _next) => {
   console.error('Unhandled error:', err);
   res.status(500).json({ error: 'Internal server error.' });
 });
 
-// ── Export for Vercel (serverless) ────────────────────────────────────────────
+// ── Export for Vercel (serverless) ──────────────────────────────────────────
 
 module.exports = app;
 
-// ── Local dev: also listen on a port ──────────────────────────────────────────
+// ── Local dev: also listen on a port ──────────────────────────────────────────────────
 
 if (require.main === module) {
   initDB()

@@ -32,14 +32,22 @@ router.post('/', async (req, res) => {
   }
 
   try {
+    // Preserve reading status across re-imports by matching on title
+    const { rows: existingCsv } = await client.execute(
+      "SELECT title, reading_status FROM books WHERE source = 'csv'"
+    );
+    const statusByTitle = new Map(
+      existingCsv.map(row => [String(row.title).trim().toLowerCase(), String(row.reading_status)])
+    );
+
     // Delete old CSV books + insert the new batch atomically
     const stmts = [
       { sql: "DELETE FROM books WHERE source = 'csv'" },
       ...valid.map(b => ({
         sql: `INSERT INTO books
                 (id, title, author, genre, date_ordered, unit_price,
-                 total_amount, order_status, order_id, source)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'csv')`,
+                 total_amount, order_status, order_id, source, reading_status)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'csv', ?)`,
         args: [
           randomUUID(),
           b.title.trim(),
@@ -50,6 +58,7 @@ router.post('/', async (req, res) => {
           (b.totalAmount  ?? '').trim(),
           (b.orderStatus  ?? '').trim(),
           (b.orderId      ?? '').trim(),
+          statusByTitle.get(b.title.trim().toLowerCase()) ?? 'to-read',
         ],
       })),
     ];

@@ -1,7 +1,7 @@
 'use strict';
 
 const { Router }                                = require('express');
-const { client, isDbAvailable, syncAuthors, bookToApi, randomUUID } = require('../db');
+const { client, isDbAvailable, syncAuthors, bookToApi, randomUUID, READING_STATUSES } = require('../db');
 
 const router = Router();
 
@@ -67,6 +67,34 @@ router.post('/', async (req, res) => {
   } catch (err) {
     console.error('POST /api/library:', err);
     res.status(500).json({ error: 'Failed to add book.' });
+  }
+});
+
+// PATCH /api/library/:id — update a book's reading status
+router.patch('/:id', async (req, res) => {
+  const { readingStatus } = req.body ?? {};
+
+  if (!READING_STATUSES.includes(readingStatus)) {
+    return res.status(400).json({ error: `readingStatus must be one of: ${READING_STATUSES.join(', ')}.` });
+  }
+  if (!isDbAvailable()) return res.status(503).json({ error: 'Database not configured.' });
+
+  try {
+    const result = await client.execute({
+      sql:  'UPDATE books SET reading_status = ? WHERE id = ?',
+      args: [readingStatus, req.params.id],
+    });
+    if (result.rowsAffected === 0) {
+      return res.status(404).json({ error: 'Book not found.' });
+    }
+    const { rows } = await client.execute({
+      sql:  'SELECT * FROM books WHERE id = ?',
+      args: [req.params.id],
+    });
+    res.json({ book: bookToApi(rows[0]) });
+  } catch (err) {
+    console.error('PATCH /api/library/:id:', err);
+    res.status(500).json({ error: 'Failed to update book.' });
   }
 });
 
