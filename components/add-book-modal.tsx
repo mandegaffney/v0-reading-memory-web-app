@@ -7,13 +7,14 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { usePreferences } from '@/lib/preferences';
 import { searchByTitleAuthor, type GoogleBook } from '@/lib/google-books';
 import { Mic, Loader2, CheckCircle2, Search, ArrowLeft, MicOff, Check } from 'lucide-react';
 
-// ── State machine ──────────────────────────────────────────────
+// ── State machine ─────────────────────────────────────────────────────────────
 
 type Step =
   | { type: 'form' }
@@ -22,7 +23,7 @@ type Step =
   | { type: 'saving';   total: number; progress: number }
   | { type: 'done';     count: number };
 
-// ── Speech Recognition ───────────────────────────────────────────────
+// ── Speech Recognition ────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const getSR = (): (new () => SpeechRecognition) | null =>
@@ -31,7 +32,7 @@ const getSR = (): (new () => SpeechRecognition) | null =>
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     : ((window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition ?? null);
 
-// ── Component ─────────────────────────────────────────────────
+// ── Component ─────────────────────────────────────────────────────────────────
 
 interface Props {
   open:         boolean;
@@ -49,6 +50,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   // Voice
+  const [activeField,      setActiveField]      = useState<'title' | 'author'>('title');
   const [listeningFor,     setListeningFor]     = useState<'title' | 'author' | null>(null);
   const [voiceAvailable,   setVoiceAvailable]   = useState<boolean | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
@@ -58,7 +60,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
   useEffect(() => { setVoiceAvailable(getSR() !== null); }, []);
   useEffect(() => { if (!open) abort(); }, [open]);
 
-  // ── Helpers ─────────────────────────────────────────────────
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
   function abort() {
     try { recRef.current?.abort(); } catch {}
@@ -82,7 +84,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
 
   const canSearch = searchTitle.trim().length > 0 || searchAuthor.trim().length > 0;
 
-  // ── Voice ─────────────────────────────────────────────────
+  // ── Voice ─────────────────────────────────────────────────────────────────
 
   function startListening(field: 'title' | 'author') {
     abort();
@@ -109,7 +111,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
     try { rec.start(); } catch { setVoiceAvailable(false); recRef.current = null; }
   }
 
-  // ── Search ─────────────────────────────────────────────────
+  // ── Search ────────────────────────────────────────────────────────────────
 
   async function handleSearch() {
     if (!canSearch) return;
@@ -120,7 +122,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
     setStep({ type: 'results', books });
   }
 
-  // ── Multi-select helpers ───────────────────────────────────────────
+  // ── Multi-select helpers ──────────────────────────────────────────────────
 
   function toggleBook(id: string) {
     setSelected(prev => {
@@ -138,7 +140,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
     }
   }
 
-  // ── Batch save ─────────────────────────────────────────────────
+  // ── Batch save ────────────────────────────────────────────────────────────
 
   async function saveSelected(books: GoogleBook[]) {
     const toSave = books.filter(b => selected.has(b.id));
@@ -171,16 +173,19 @@ export function AddBookModal({ open, onOpenChange }: Props) {
 
   const showMic = voiceAvailable === true && !permissionDenied;
 
-  // ── Render ─────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Add a Book</DialogTitle>
+          <DialogDescription>
+            Search Google Books and Open Library by title, author, or both.
+          </DialogDescription>
         </DialogHeader>
 
-        {/* ── Form ──────────────────────────────────────────────── */}
+        {/* ── Form ──────────────────────────────────────────────────────── */}
         {step.type === 'form' && (
           <div className="pt-2 space-y-5">
             {permissionDenied && (
@@ -193,61 +198,55 @@ export function AddBookModal({ open, onOpenChange }: Props) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <label className="eyebrow">Title</label>
-                <div className="relative">
-                  <input
-                    autoFocus
-                    value={searchTitle}
-                    onChange={e => setSearchTitle(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && canSearch && handleSearch()}
-                    placeholder="e.g. The Secret History"
-                    className="w-full px-3 py-2.5 pr-9 text-sm border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                  />
-                  {showMic && (
-                    <MicBtn
-                      active={listeningFor === 'title'}
-                      onToggle={() => listeningFor === 'title' ? abort() : startListening('title')}
-                    />
-                  )}
-                </div>
-                {listeningFor === 'title' && <Hint field="title" />}
+                <input
+                  autoFocus
+                  value={searchTitle}
+                  onChange={e => setSearchTitle(e.target.value)}
+                  onFocus={() => setActiveField('title')}
+                  onKeyDown={e => e.key === 'Enter' && canSearch && handleSearch()}
+                  placeholder="e.g. The Secret History"
+                  className="w-full px-3 py-2.5 text-sm rounded-md border border-input bg-background placeholder:text-muted-foreground placeholder:italic focus:outline-none focus:ring-1 focus:ring-ring"
+                />
               </div>
 
               <div className="space-y-2">
                 <label className="eyebrow">Author</label>
-                <div className="relative">
-                  <input
-                    value={searchAuthor}
-                    onChange={e => setSearchAuthor(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && canSearch && handleSearch()}
-                    placeholder="e.g. Donna Tartt"
-                    className="w-full px-3 py-2.5 pr-9 text-sm border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                  />
-                  {showMic && (
-                    <MicBtn
-                      active={listeningFor === 'author'}
-                      onToggle={() => listeningFor === 'author' ? abort() : startListening('author')}
-                    />
-                  )}
-                </div>
-                {listeningFor === 'author' && <Hint field="author" />}
+                <input
+                  value={searchAuthor}
+                  onChange={e => setSearchAuthor(e.target.value)}
+                  onFocus={() => setActiveField('author')}
+                  onKeyDown={e => e.key === 'Enter' && canSearch && handleSearch()}
+                  placeholder="e.g. Donna Tartt"
+                  className="w-full px-3 py-2.5 text-sm rounded-md border border-input bg-background placeholder:text-muted-foreground placeholder:italic focus:outline-none focus:ring-1 focus:ring-ring"
+                />
               </div>
             </div>
 
-            <p className="text-xs text-muted-foreground">
-              Fill in one or both fields. Results come from Google Books and Open Library combined.
-            </p>
+            {showMic && (
+              <div className="flex items-center gap-3 p-3 bg-muted rounded-md">
+                <MicBtn
+                  active={listeningFor === activeField}
+                  onToggle={() => listeningFor === activeField ? abort() : startListening(activeField)}
+                />
+                <p className="text-sm text-muted-foreground">
+                  {listeningFor
+                    ? `Listening for ${listeningFor}…`
+                    : 'Prefer to speak? Tap the mic once to dictate a title or author.'}
+                </p>
+              </div>
+            )}
 
             <div className="flex gap-2 pt-1">
+              <Button variant="outline" onClick={() => handleClose(false)}>Cancel</Button>
               <Button className="flex-1" disabled={!canSearch} onClick={handleSearch}>
                 <Search className="w-3.5 h-3.5" />
                 Search
               </Button>
-              <Button variant="outline" onClick={() => handleClose(false)}>Cancel</Button>
             </div>
           </div>
         )}
 
-        {/* ── Searching ────────────────────────────────────────── */}
+        {/* ── Searching ─────────────────────────────────────────────────── */}
         {step.type === 'searching' && (
           <div className="flex flex-col items-center gap-3 py-12">
             <Loader2 className="w-7 h-7 animate-spin text-muted-foreground" />
@@ -255,7 +254,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
           </div>
         )}
 
-        {/* ── Results ──────────────────────────────────────────── */}
+        {/* ── Results ───────────────────────────────────────────────────── */}
         {step.type === 'results' && (
           <div className="pt-2 space-y-4">
             {step.books.length === 0 ? (
@@ -370,7 +369,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
           </div>
         )}
 
-        {/* ── Saving ───────────────────────────────────────────── */}
+        {/* ── Saving ────────────────────────────────────────────────────── */}
         {step.type === 'saving' && (
           <div className="flex flex-col items-center gap-4 py-10">
             <Loader2 className="w-7 h-7 animate-spin text-muted-foreground" />
@@ -387,7 +386,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
           </div>
         )}
 
-        {/* ── Done ──────────────────────────────────────────────── */}
+        {/* ── Done ──────────────────────────────────────────────────────── */}
         {step.type === 'done' && (
           <div className="flex flex-col items-center gap-4 py-8 text-center">
             <CheckCircle2 className="w-10 h-10 text-green-600" />
@@ -408,7 +407,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
   );
 }
 
-// ── Sub-components ────────────────────────────────────────────────────
+// ── Sub-components ────────────────────────────────────────────────────────────
 
 function MicBtn({ active, onToggle }: { active: boolean; onToggle: () => void }) {
   return (
@@ -417,19 +416,13 @@ function MicBtn({ active, onToggle }: { active: boolean; onToggle: () => void })
       onClick={onToggle}
       title={active ? 'Stop listening' : 'Tap to speak'}
       className={[
-        'absolute right-2 top-1/2 -translate-y-1/2 p-1.5 transition-colors',
-        active ? 'text-destructive' : 'text-muted-foreground hover:text-foreground',
+        'flex items-center justify-center shrink-0 w-9 h-9 rounded-full border transition-colors',
+        active
+          ? 'border-destructive text-destructive'
+          : 'border-border bg-card text-muted-foreground hover:text-foreground',
       ].join(' ')}
     >
       <Mic className={['w-3.5 h-3.5', active ? 'animate-pulse' : ''].join(' ')} />
     </button>
-  );
-}
-
-function Hint({ field }: { field: 'title' | 'author' }) {
-  return (
-    <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground animate-pulse">
-      🎤 {field === 'title' ? 'Say the title…' : "Say the author's name…"}
-    </p>
   );
 }
