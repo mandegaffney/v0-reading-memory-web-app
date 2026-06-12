@@ -7,6 +7,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { usePreferences } from '@/lib/preferences';
@@ -49,6 +50,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   // Voice
+  const [activeField,      setActiveField]      = useState<'title' | 'author'>('title');
   const [listeningFor,     setListeningFor]     = useState<'title' | 'author' | null>(null);
   const [voiceAvailable,   setVoiceAvailable]   = useState<boolean | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
@@ -178,6 +180,9 @@ export function AddBookModal({ open, onOpenChange }: Props) {
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Add a Book</DialogTitle>
+          <DialogDescription>
+            Search Google Books and Open Library by title, author, or both.
+          </DialogDescription>
         </DialogHeader>
 
         {/* ── Form ──────────────────────────────────────────────────────── */}
@@ -193,56 +198,50 @@ export function AddBookModal({ open, onOpenChange }: Props) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <label className="eyebrow">Title</label>
-                <div className="relative">
-                  <input
-                    autoFocus
-                    value={searchTitle}
-                    onChange={e => setSearchTitle(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && canSearch && handleSearch()}
-                    placeholder="e.g. The Secret History"
-                    className="w-full px-3 py-2.5 pr-9 text-sm border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                  />
-                  {showMic && (
-                    <MicBtn
-                      active={listeningFor === 'title'}
-                      onToggle={() => listeningFor === 'title' ? abort() : startListening('title')}
-                    />
-                  )}
-                </div>
-                {listeningFor === 'title' && <Hint field="title" />}
+                <input
+                  autoFocus
+                  value={searchTitle}
+                  onChange={e => setSearchTitle(e.target.value)}
+                  onFocus={() => setActiveField('title')}
+                  onKeyDown={e => e.key === 'Enter' && canSearch && handleSearch()}
+                  placeholder="e.g. The Secret History"
+                  className="w-full px-3 py-2.5 text-sm rounded-md border border-input bg-background placeholder:text-muted-foreground placeholder:italic focus:outline-none focus:ring-1 focus:ring-ring"
+                />
               </div>
 
               <div className="space-y-2">
                 <label className="eyebrow">Author</label>
-                <div className="relative">
-                  <input
-                    value={searchAuthor}
-                    onChange={e => setSearchAuthor(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && canSearch && handleSearch()}
-                    placeholder="e.g. Donna Tartt"
-                    className="w-full px-3 py-2.5 pr-9 text-sm border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                  />
-                  {showMic && (
-                    <MicBtn
-                      active={listeningFor === 'author'}
-                      onToggle={() => listeningFor === 'author' ? abort() : startListening('author')}
-                    />
-                  )}
-                </div>
-                {listeningFor === 'author' && <Hint field="author" />}
+                <input
+                  value={searchAuthor}
+                  onChange={e => setSearchAuthor(e.target.value)}
+                  onFocus={() => setActiveField('author')}
+                  onKeyDown={e => e.key === 'Enter' && canSearch && handleSearch()}
+                  placeholder="e.g. Donna Tartt"
+                  className="w-full px-3 py-2.5 text-sm rounded-md border border-input bg-background placeholder:text-muted-foreground placeholder:italic focus:outline-none focus:ring-1 focus:ring-ring"
+                />
               </div>
             </div>
 
-            <p className="text-xs text-muted-foreground">
-              Fill in one or both fields. Results come from Google Books and Open Library combined.
-            </p>
+            {showMic && (
+              <div className="flex items-center gap-3 p-3 bg-muted rounded-md">
+                <MicBtn
+                  active={listeningFor === activeField}
+                  onToggle={() => listeningFor === activeField ? abort() : startListening(activeField)}
+                />
+                <p className="text-sm text-muted-foreground">
+                  {listeningFor
+                    ? `Listening for ${listeningFor}…`
+                    : 'Prefer to speak? Tap the mic once to dictate a title or author.'}
+                </p>
+              </div>
+            )}
 
             <div className="flex gap-2 pt-1">
+              <Button variant="outline" onClick={() => handleClose(false)}>Cancel</Button>
               <Button className="flex-1" disabled={!canSearch} onClick={handleSearch}>
                 <Search className="w-3.5 h-3.5" />
                 Search
               </Button>
-              <Button variant="outline" onClick={() => handleClose(false)}>Cancel</Button>
             </div>
           </div>
         )}
@@ -417,19 +416,13 @@ function MicBtn({ active, onToggle }: { active: boolean; onToggle: () => void })
       onClick={onToggle}
       title={active ? 'Stop listening' : 'Tap to speak'}
       className={[
-        'absolute right-2 top-1/2 -translate-y-1/2 p-1.5 transition-colors',
-        active ? 'text-destructive' : 'text-muted-foreground hover:text-foreground',
+        'flex items-center justify-center shrink-0 w-9 h-9 rounded-full border transition-colors',
+        active
+          ? 'border-destructive text-destructive'
+          : 'border-border bg-card text-muted-foreground hover:text-foreground',
       ].join(' ')}
     >
       <Mic className={['w-3.5 h-3.5', active ? 'animate-pulse' : ''].join(' ')} />
     </button>
-  );
-}
-
-function Hint({ field }: { field: 'title' | 'author' }) {
-  return (
-    <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground animate-pulse">
-      🎙 {field === 'title' ? 'Say the title…' : "Say the author's name…"}
-    </p>
   );
 }
