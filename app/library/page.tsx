@@ -8,7 +8,7 @@ import { BookCard } from '@/components/book-card';
 import { usePreferences } from '@/lib/preferences';
 import type { ReadingStatus } from '@/lib/preferences';
 import { getOwnedBooks } from '@/lib/data';
-import { ArrowLeft, Search, BookOpen, X, Trash2 } from 'lucide-react';
+import { ArrowLeft, Search, BookOpen, X, Trash2, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 function normalizeTitle(t: string): string {
@@ -238,15 +238,19 @@ function LibraryContent() {
                     </td>
                     <td className="py-3.5 pr-4 text-muted-foreground hidden sm:table-cell">{book.author || '—'}</td>
                     <td className="py-3.5 pr-4">
-                      <select
-                        value={book.readingStatus ?? 'to-read'}
-                        onChange={e => handleStatusChange(book, e.target.value as ReadingStatus)}
-                        className="text-xs border border-input rounded-md bg-background px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
-                      >
-                        {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                          <option key={value} value={value}>{label}</option>
-                        ))}
-                      </select>
+                      <div className="relative inline-block">
+                        <select
+                          value={book.readingStatus ?? 'to-read'}
+                          onChange={e => handleStatusChange(book, e.target.value as ReadingStatus)}
+                          disabled={book.readingStatus === 'finished'}
+                          className="appearance-none text-xs font-medium pl-3 pr-8 py-2 rounded-md border-[1.5px] border-input bg-background text-foreground focus:outline-none focus:border-foreground transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                      </div>
                     </td>
                     {/* Delete — always visible on mobile, revealed on hover on desktop */}
                     <td className="py-3.5 text-right">
