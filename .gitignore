@@ -17,3 +17,6 @@ out/
 
 # SQLite database (persisted on Railway via a Volume; not committed to git)
 data/
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo
