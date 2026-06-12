@@ -12,7 +12,7 @@ import { usePreferences } from '@/lib/preferences';
 import { useAuthorBooks } from '@/lib/use-author-books';
 import { useNewArrivals } from '@/lib/use-new-arrivals';
 import { useAuthorPhotos } from '@/lib/use-author-photos';
-import { fetchGoogleBooksCover } from '@/lib/cover-fallback';
+import { fetchBookCover } from '@/lib/cover-fallback';
 import { getFavoriteAuthors, getOwnedBooks } from '@/lib/data';
 import { ArrowRight, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
@@ -697,7 +697,7 @@ function PileCover({
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchGoogleBooksCover(title, author, controller.signal).then(setCover);
+    fetchBookCover(title, author, controller.signal).then(setCover);
     return () => controller.abort();
   }, [title, author]);
 
