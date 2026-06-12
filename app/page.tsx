@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Header } from '@/components/header';
+import { Footer } from '@/components/footer';
 import { Section, EmptyState } from '@/components/layout';
 import { DiscoveryCard, DiscoveryCardSkeleton } from '@/components/discovery-card';
 import { AuthorAvatar } from '@/components/author-avatar';
@@ -614,9 +615,9 @@ export default function HomePage() {
 
       </main>
 
-      {/* ════════════ STATS + FOOTER — dark, oversized brand ════════════ */}
-      <div className="mt-14 md:mt-16" style={{ background: '#2B2926', color: '#F4EFE1' }}>
-        <div className="max-w-[1280px] mx-auto px-6 md:px-12 pt-16 md:pt-20 pb-12">
+      {/* ════════════ STATS — dark, oversized brand ════════════ */}
+      <div className="mt-14 md:mt-16 pt-16 md:pt-20 pb-12" style={{ background: '#2B2926', color: '#F4EFE1' }}>
+        <div className="max-w-[1280px] mx-auto px-6 md:px-12">
           <span
             className="text-[12.5px] tracking-[0.5px]"
             style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#D98F6B' }}
@@ -632,47 +633,9 @@ export default function HomePage() {
             <div className="italic">{preOrders.length} more on the way.</div>
           </div>
         </div>
-
-        <div
-          className="max-w-[1280px] mx-auto px-6 md:px-12 flex flex-wrap justify-between gap-10 pt-10 border-t text-[13px]"
-          style={{ borderColor: '#4D483F', fontFamily: 'var(--font-space-mono), monospace', letterSpacing: '0.3px' }}
-        >
-          <div className="flex flex-col gap-3">
-            <span style={{ color: '#8A8475' }}>(contact)</span>
-            <a href="mailto:hello@thestack.app" className="transition-colors hover:text-[#D98F6B]" style={{ color: '#D7D0C2' }}>
-              say hello&nbsp;↗
-            </a>
-            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-[#D98F6B]" style={{ color: '#D7D0C2' }}>
-              instagram&nbsp;↗
-            </a>
-          </div>
-          <div className="flex flex-col gap-3 text-right">
-            <span style={{ color: '#8A8475' }}>(index)</span>
-            <Link href="/library" className="transition-colors hover:text-[#D98F6B]" style={{ color: '#D7D0C2' }}>
-              library
-            </Link>
-            <Link href="/authors" className="transition-colors hover:text-[#D98F6B]" style={{ color: '#D7D0C2' }}>
-              discover · stats
-            </Link>
-          </div>
-        </div>
-
-        <div className="overflow-hidden pt-10 pb-6">
-          <div
-            className="text-center whitespace-nowrap"
-            style={{ fontFamily: 'var(--font-marker)', fontSize: 'clamp(70px, 18vw, 220px)', lineHeight: 0.82, color: '#F4EFE1', letterSpacing: '-0.01em' }}
-          >
-            The Stack
-          </div>
-          <div
-            className="max-w-[1280px] mx-auto px-6 md:px-12 flex justify-between flex-wrap gap-2 text-[11.5px] tracking-[0.5px]"
-            style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#6f685c' }}
-          >
-            <span>© 2026 THE STACK</span>
-            <span>GOOGLE BOOKS &amp; OPEN LIBRARY</span>
-          </div>
-        </div>
       </div>
+
+      <Footer />
 
       <AddBookModal open={addBookOpen} onOpenChange={setAddBookOpen} />
     </div>
