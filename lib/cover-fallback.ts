@@ -22,6 +22,42 @@ export async function fetchGoogleBooksCover(
 }
 
 /**
+ * Fetches a book cover from Open Library's search index — used as the
+ * primary source since it requires no API key and isn't rate-limited.
+ */
+export async function fetchOpenLibraryCover(
+  title: string,
+  author: string,
+  signal: AbortSignal,
+): Promise<string | null> {
+  try {
+    const params = new URLSearchParams({ title, fields: 'cover_i', limit: '1' });
+    if (author) params.set('author', author);
+    const res = await fetch(`https://openlibrary.org/search.json?${params.toString()}`, { signal });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const coverId = data.docs?.[0]?.cover_i as number | undefined;
+    return coverId ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg` : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetches a book cover, trying Open Library first and falling back to
+ * Google Books if no cover is found there.
+ */
+export async function fetchBookCover(
+  title: string,
+  author: string,
+  signal: AbortSignal,
+): Promise<string | null> {
+  const fromOpenLibrary = await fetchOpenLibraryCover(title, author, signal);
+  if (fromOpenLibrary) return fromOpenLibrary;
+  return fetchGoogleBooksCover(title, author, signal);
+}
+
+/**
  * Fetches an author photo from Wikipedia — used as a fallback when Open
  * Library has no author photo for a name.
  */
