@@ -389,7 +389,7 @@ export function AddBookModal({ open, onOpenChange }: Props) {
         {/* ── Done ──────────────────────────────────────────────────────── */}
         {step.type === 'done' && (
           <div className="flex flex-col items-center gap-4 py-8 text-center">
-            <CheckCircle2 className="w-10 h-10 text-green-600" />
+            <CheckCircle2 className="w-10 h-10 text-success" />
             <div>
               <p className="font-serif text-2xl font-normal">
                 {step.count === 1 ? '1 book' : `${step.count} books`} added
