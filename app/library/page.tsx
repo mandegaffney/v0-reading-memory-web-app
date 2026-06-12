@@ -8,17 +8,19 @@ import { BookCard } from '@/components/book-card';
 import { usePreferences } from '@/lib/preferences';
 import type { ReadingStatus } from '@/lib/preferences';
 import { getOwnedBooks } from '@/lib/data';
-import { ArrowLeft, Search, BookOpen, X, Trash2 } from 'lucide-react';
+import { Search, X, Trash2, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
-
-function normalizeTitle(t: string): string {
-  return t.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
-}
 
 const STATUS_LABELS: Record<ReadingStatus, string> = {
   'to-read': 'Want to read',
   reading:   'Reading',
   finished:  'Finished',
+};
+
+const STATUS_COLORS: Record<ReadingStatus, string> = {
+  'to-read': '#8A8475',
+  reading:   '#9C5B3F',
+  finished:  '#8A8475',
 };
 
 // ── Inner component that reads search params ──────────────────────────────────
@@ -64,7 +66,6 @@ function LibraryContent() {
         : staticOwned)
     : [];
 
-  const totalOwned = hasImport ? importedBooks.length : staticOwned.length;
   const hasResults = hasImport ? filteredImported.length > 0 : filteredStatic.length > 0;
 
   const clearFilter = () => {
@@ -109,55 +110,49 @@ function LibraryContent() {
     }
   }
 
-  const pageTitle = authorFromUrl
-    ? `Library — ${authorFromUrl}`
-    : 'Your Library';
-
-  const pageSubtitle = authorFromUrl
-    ? `Showing results for "${authorFromUrl}"`
-    : `${totalOwned} hardcover ${totalOwned === 1 ? 'book' : 'books'}${hasImport ? ' — imported from CSV' : ''}`;
-
   return (
     <div className="min-h-screen">
       <Header />
 
-      <div className="max-w-6xl mx-auto px-6 pt-6">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      {/* ════════════ HEADER — editorial title, matches "Your stack" ════════════ */}
+      <div className="max-w-[1280px] mx-auto px-6 md:px-12 pt-10 md:pt-16 pb-8">
+        <span
+          className="text-[12.5px] tracking-[0.5px]"
+          style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#9C5B3F' }}
         >
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </Link>
+          (your library)
+        </span>
+        <h1
+          className="m-0 mt-3 font-normal leading-[0.98] tracking-[-0.01em] text-balance"
+          style={{ fontFamily: 'var(--font-instrument), serif', fontSize: 'clamp(40px, 6vw, 72px)' }}
+        >
+          {authorFromUrl ? (
+            <>Results for <span className="italic">{authorFromUrl}</span></>
+          ) : (
+            <>Your <span className="italic">stack</span>, in full</>
+          )}
+        </h1>
       </div>
 
-      {/* Page header */}
-      <div className="border-b border-border mt-6">
-        <div className="max-w-6xl mx-auto px-6 py-14">
-          <h1 className="font-serif text-4xl md:text-5xl font-normal tracking-tight leading-[0.95]">
-            {pageTitle}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-3">{pageSubtitle}</p>
-        </div>
-      </div>
-
-      <main className="max-w-6xl mx-auto px-6 py-12">
+      <main className="max-w-[1280px] mx-auto px-6 md:px-12 pb-20">
 
         {/* Search + active filter ────────────────────────────────── */}
         <div className="flex flex-col gap-3 mb-10 max-w-sm">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color: '#A39B8B' }} />
             <input
               type="text"
               placeholder={hasImport ? 'Search title, author, genre, status…' : 'Search by title or author'}
               value={query}
               onChange={e => setQuery(e.target.value)}
-              className="w-full pl-9 pr-9 py-2 text-sm border border-border rounded-sm bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              className="w-full pl-6 pr-6 py-2 text-[13px] bg-transparent border-0 border-b-[1.5px] focus:outline-none focus:border-[#9C5B3F] transition-colors placeholder:text-[#A39B8B]"
+              style={{ fontFamily: 'var(--font-space-mono), monospace', borderColor: '#E0D9C8', color: '#2B2926' }}
             />
             {query && (
               <button
                 onClick={clearFilter}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                className="absolute right-0 top-1/2 -translate-y-1/2 transition-colors hover:text-[#9C5B3F]"
+                style={{ color: '#A39B8B' }}
                 aria-label="Clear search"
               >
                 <X className="w-3.5 h-3.5" />
@@ -167,19 +162,19 @@ function LibraryContent() {
 
           {/* Author-filter badge — shown when navigated from an author card */}
           {authorFromUrl && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5 bg-muted border border-border rounded-full px-2.5 py-1">
-                Filtering by author
+            <div className="flex items-center gap-4 text-[12px]" style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#A39B8B' }}>
+              <span className="inline-flex items-center gap-1.5">
+                (filtering by author)
                 <button
                   onClick={clearFilter}
-                  className="hover:text-foreground transition-colors"
+                  className="transition-colors hover:text-[#9C5B3F]"
                   aria-label="Remove author filter"
                 >
                   <X className="w-3 h-3" />
                 </button>
               </span>
-              <Link href="/library" className="hover:text-foreground transition-colors underline underline-offset-4">
-                View full library
+              <Link href="/library" className="underline underline-offset-4 transition-colors hover:text-[#9C5B3F]">
+                view full library →
               </Link>
             </div>
           )}
@@ -187,23 +182,24 @@ function LibraryContent() {
 
         {/* Results ────────────────────────────────────────────────── */}
         {!hasResults ? (
-          <div className="text-center py-16">
+          <div className="py-16 text-center border-t" style={{ borderColor: '#E0D9C8' }}>
             {q ? (
               <div>
-                <p className="text-muted-foreground">
+                <p className="text-sm" style={{ color: '#8A8475' }}>
                   No books found for &ldquo;{query}&rdquo;
                 </p>
                 <button
                   onClick={clearFilter}
-                  className="mt-3 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors"
+                  className="mt-3 text-[12px] underline underline-offset-4 transition-colors hover:text-[#9C5B3F]"
+                  style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#A39B8B' }}
                 >
-                  Clear filter
+                  (clear filter)
                 </button>
               </div>
             ) : (
-              <p className="text-muted-foreground">
+              <p className="text-sm" style={{ color: '#8A8475' }}>
                 Your library is empty.{' '}
-                <Link href="/settings" className="underline underline-offset-4 hover:text-foreground transition-colors">
+                <Link href="/settings" className="underline underline-offset-4 transition-colors hover:text-[#9C5B3F]">
                   Import a CSV
                 </Link>{' '}
                 to get started.
@@ -211,66 +207,74 @@ function LibraryContent() {
             )}
           </div>
         ) : hasImport ? (
-          /* ── Imported data: full table ── */
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="border-b border-border text-left">
-                  <th className="py-2.5 pr-4 font-medium text-muted-foreground">Title</th>
-                  <th className="py-2.5 pr-4 font-medium text-muted-foreground hidden sm:table-cell">Author</th>
-                  <th className="py-2.5 pr-4 font-medium text-muted-foreground">Status</th>
-                  <th className="py-2.5 w-8" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredImported.map((book, i) => (
-                  <tr key={i} className="group hover:bg-muted/30 transition-colors">
-                    <td className="py-3.5 pr-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-7 h-9 bg-muted rounded-sm shrink-0 flex items-center justify-center group-hover:bg-muted/70 transition-colors">
-                          <BookOpen className="w-3 h-3 text-muted-foreground" />
-                        </div>
-                        <span className="font-medium leading-snug line-clamp-2">{book.title}</span>
-                      </div>
-                      <div className="sm:hidden mt-1 pl-10 text-xs text-muted-foreground">
-                        {book.author && <span>{book.author}</span>}
-                      </div>
-                    </td>
-                    <td className="py-3.5 pr-4 text-muted-foreground hidden sm:table-cell">{book.author || '—'}</td>
-                    <td className="py-3.5 pr-4">
-                      <select
-                        value={book.readingStatus ?? 'to-read'}
-                        onChange={e => handleStatusChange(book, e.target.value as ReadingStatus)}
-                        className="text-xs border border-input rounded-md bg-background px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
-                      >
-                        {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                          <option key={value} value={value}>{label}</option>
-                        ))}
-                      </select>
-                    </td>
-                    {/* Delete — always visible on mobile, revealed on hover on desktop */}
-                    <td className="py-3.5 text-right">
-                      <button
-                        onClick={() => confirmRemove(book)}
-                        title="Remove book"
-                        className="p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 sm:opacity-100 hover:text-destructive transition-all"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          /* ── Imported data: editorial index list, like "Your stack" on the homepage ── */
+          <div>
+            {filteredImported.map((book, i) => {
+              const status = book.readingStatus ?? 'to-read';
+              const color  = STATUS_COLORS[status];
+              return (
+                <div
+                  key={book.id ?? i}
+                  className="group grid grid-cols-[28px_1fr_auto_24px] md:grid-cols-[44px_1fr_auto_28px] items-center gap-3 md:gap-[18px] py-5 px-2 md:px-1 border-t transition-colors hover:bg-[#F4EFE1]"
+                  style={{ borderColor: '#E0D9C8' }}
+                >
+                  <span
+                    className="text-[13px]"
+                    style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#B3AB9A' }}
+                  >
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <div className="min-w-0 flex flex-col gap-px">
+                    <span
+                      className="leading-[1.04] tracking-[-0.01em] truncate"
+                      style={{ fontFamily: 'var(--font-instrument), serif', fontSize: '22px' }}
+                    >
+                      {book.title}
+                    </span>
+                    <span className="text-[13.5px] truncate" style={{ color: '#8A8475' }}>
+                      {book.author || '—'}
+                    </span>
+                  </div>
+                  <div className="relative inline-block justify-self-end">
+                    <select
+                      value={status}
+                      onChange={e => handleStatusChange(book, e.target.value as ReadingStatus)}
+                      disabled={status === 'finished'}
+                      className="appearance-none bg-transparent border-0 pl-0 pr-4 py-1 text-[10.5px] font-bold uppercase tracking-[0.6px] whitespace-nowrap focus:outline-none disabled:cursor-not-allowed"
+                      style={{ fontFamily: 'var(--font-space-mono), monospace', color }}
+                    >
+                      {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </select>
+                    {status !== 'finished' && (
+                      <ChevronDown
+                        className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3"
+                        style={{ color }}
+                      />
+                    )}
+                  </div>
+                  <button
+                    onClick={() => confirmRemove(book)}
+                    title="Remove book"
+                    className="justify-self-end p-1 transition-colors hover:text-[#9C5B3F]"
+                    style={{ color: '#A39B8B' }}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+            <div className="border-t" style={{ borderColor: '#E0D9C8' }} />
             {q && (
-              <p className="text-xs text-muted-foreground mt-4">
-                {filteredImported.length} of {importedBooks.length} books
+              <p className="text-[12px] mt-4" style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#A39B8B' }}>
+                ({filteredImported.length} of {importedBooks.length} books)
               </p>
             )}
           </div>
         ) : (
           /* ── Static/demo data: book card grid ── */
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 pt-10 border-t" style={{ borderColor: '#E0D9C8' }}>
             {filteredStatic.map(book => (
               <BookCard key={book.id} book={book} showStatus={false} />
             ))}
