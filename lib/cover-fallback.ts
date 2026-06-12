@@ -77,3 +77,47 @@ export async function fetchWikipediaAuthorPhoto(
     return null;
   }
 }
+
+/**
+ * Fetches an author photo from Wikidata (via its P18 "image" claim, resolved
+ * to a Wikimedia Commons file) — used as a final fallback when neither Open
+ * Library nor Wikipedia has a photo for a name.
+ */
+export async function fetchWikidataAuthorPhoto(
+  name: string,
+  signal: AbortSignal,
+): Promise<string | null> {
+  try {
+    const searchParams = new URLSearchParams({
+      action: 'wbsearchentities',
+      search: name,
+      language: 'en',
+      format: 'json',
+      type: 'item',
+      limit: '1',
+      origin: '*',
+    });
+    const searchRes = await fetch(`https://www.wikidata.org/w/api.php?${searchParams}`, { signal });
+    if (!searchRes.ok) return null;
+    const searchData = await searchRes.json();
+    const entityId = searchData.search?.[0]?.id as string | undefined;
+    if (!entityId) return null;
+
+    const claimsParams = new URLSearchParams({
+      action: 'wbgetclaims',
+      entity: entityId,
+      property: 'P18',
+      format: 'json',
+      origin: '*',
+    });
+    const claimsRes = await fetch(`https://www.wikidata.org/w/api.php?${claimsParams}`, { signal });
+    if (!claimsRes.ok) return null;
+    const claimsData = await claimsRes.json();
+    const filename = claimsData.claims?.P18?.[0]?.mainsnak?.datavalue?.value as string | undefined;
+    if (!filename) return null;
+
+    return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(filename)}?width=400`;
+  } catch {
+    return null;
+  }
+}

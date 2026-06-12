@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { fetchWikipediaAuthorPhoto } from './cover-fallback';
+import { fetchWikipediaAuthorPhoto, fetchWikidataAuthorPhoto } from './cover-fallback';
 
 /** Fetches one author OLID from the Open Library author-search endpoint. */
 async function fetchOlid(
@@ -59,6 +59,11 @@ export function useAuthorPhotos(authorNames: string[]): {
           // Fall back to Wikipedia's author photo when Open Library has none
           if (!url) {
             url = await fetchWikipediaAuthorPhoto(name, controller.signal);
+          }
+
+          // Final fallback: Wikidata's image claim, resolved via Wikimedia Commons
+          if (!url) {
+            url = await fetchWikidataAuthorPhoto(name, controller.signal);
           }
 
           return [name, url] as [string, string | null];
