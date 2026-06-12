@@ -257,7 +257,7 @@ function LibraryContent() {
                   <button
                     onClick={() => confirmRemove(book)}
                     title="Remove book"
-                    className="justify-self-end p-1 opacity-0 group-hover:opacity-100 sm:opacity-0 transition-opacity hover:text-[#9C5B3F]"
+                    className="justify-self-end p-1 transition-colors hover:text-[#9C5B3F]"
                     style={{ color: '#A39B8B' }}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
