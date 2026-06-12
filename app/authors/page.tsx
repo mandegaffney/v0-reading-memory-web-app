@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Header } from '@/components/header';
@@ -22,10 +23,13 @@ const TILTS = ['-2deg', '1.5deg', '-1deg', '2deg', '1deg', '-1.5deg'];
 
 export default function AuthorsPage() {
   const { dislikedAuthorIds, dislikeAuthor, unDislikeAuthor, importedBooks, importedFavoriteAuthors } = usePreferences();
+  const [showHidden, setShowHidden] = useState(false);
 
   const hasImport       = importedBooks.length > 0;
-  const staticFavorites = authors.filter(a => a.isFavorite);
-  const staticOthers    = authors.filter(a => !a.isFavorite);
+  const isHidden        = (id: string) => dislikedAuthorIds.includes(id);
+  const staticFavorites = authors.filter(a => a.isFavorite && !isHidden(a.id));
+  const staticOthers    = authors.filter(a => !a.isFavorite && !isHidden(a.id));
+  const hiddenAuthors   = authors.filter(a => isHidden(a.id));
 
   // From the qualified favorites, filter out any that overlap with known static authors
   const knownNamesLower        = new Set(authors.map(a => a.name.toLowerCase()));
@@ -82,29 +86,25 @@ export default function AuthorsPage() {
                   ))
                 : null}
 
-              {staticFavorites.map((author, i) => {
-                const isDisliked = dislikedAuthorIds.includes(author.id);
-                return (
-                  <AuthorCard
-                    key={author.id}
-                    index={(hasImport ? importedFavoriteOnly.length : 0) + i}
-                    name={author.name}
-                    href={`/author/${author.id}`}
-                    photoUrl={author.imageUrl}
-                    caption={`${author.booksOwned} ${author.booksOwned === 1 ? 'book' : 'books'} owned`}
-                    dimmed={isDisliked}
-                    action={
-                      <button
-                        onClick={() => isDisliked ? unDislikeAuthor(author.id) : dislikeAuthor(author.id)}
-                        className="inline-flex items-center gap-1.5 transition-colors hover:text-[#9C5B3F]"
-                        style={{ fontFamily: 'var(--font-space-mono), monospace', fontSize: '11px', letterSpacing: '0.4px', color: '#A39B8B' }}
-                      >
-                        {isDisliked ? <><Eye className="w-3 h-3" /> show</> : <><EyeOff className="w-3 h-3" /> hide</>}
-                      </button>
-                    }
-                  />
-                );
-              })}
+              {staticFavorites.map((author, i) => (
+                <AuthorCard
+                  key={author.id}
+                  index={(hasImport ? importedFavoriteOnly.length : 0) + i}
+                  name={author.name}
+                  href={`/author/${author.id}`}
+                  photoUrl={author.imageUrl}
+                  caption={`${author.booksOwned} ${author.booksOwned === 1 ? 'book' : 'books'} owned`}
+                  action={
+                    <button
+                      onClick={() => dislikeAuthor(author.id)}
+                      className="inline-flex items-center gap-1.5 transition-colors hover:text-[#9C5B3F]"
+                      style={{ fontFamily: 'var(--font-space-mono), monospace', fontSize: '11px', letterSpacing: '0.4px', color: '#A39B8B' }}
+                    >
+                      <EyeOff className="w-3 h-3" /> hide
+                    </button>
+                  }
+                />
+              ))}
             </div>
           </div>
         ) : (
@@ -125,9 +125,43 @@ export default function AuthorsPage() {
               (also in your collection)
             </span>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 md:gap-x-8 gap-y-12 md:gap-y-14 mt-8">
-              {staticOthers.map((author, i) => {
-                const isDisliked = dislikedAuthorIds.includes(author.id);
-                return (
+              {staticOthers.map((author, i) => (
+                <AuthorCard
+                  key={author.id}
+                  index={i}
+                  name={author.name}
+                  href={`/author/${author.id}`}
+                  photoUrl={author.imageUrl}
+                  caption={`${author.booksOwned} ${author.booksOwned === 1 ? 'book' : 'books'} owned`}
+                  action={
+                    <button
+                      onClick={() => dislikeAuthor(author.id)}
+                      className="inline-flex items-center gap-1.5 transition-colors hover:text-[#9C5B3F]"
+                      style={{ fontFamily: 'var(--font-space-mono), monospace', fontSize: '11px', letterSpacing: '0.4px', color: '#A39B8B' }}
+                    >
+                      <EyeOff className="w-3 h-3" /> hide
+                    </button>
+                  }
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Hidden authors ── */}
+        {hiddenAuthors.length > 0 && (
+          <div className="mt-16 pt-8 border-t" style={{ borderColor: '#E0D9C8' }}>
+            <button
+              onClick={() => setShowHidden(s => !s)}
+              className="inline-flex items-center gap-1.5 transition-colors hover:text-[#9C5B3F]"
+              style={{ fontFamily: 'var(--font-space-mono), monospace', fontSize: '12px', letterSpacing: '0.4px', color: '#A39B8B' }}
+            >
+              ({hiddenAuthors.length} hidden — {showHidden ? 'hide' : 'show'})
+            </button>
+
+            {showHidden && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 md:gap-x-8 gap-y-12 md:gap-y-14 mt-8">
+                {hiddenAuthors.map((author, i) => (
                   <AuthorCard
                     key={author.id}
                     index={i}
@@ -135,20 +169,20 @@ export default function AuthorsPage() {
                     href={`/author/${author.id}`}
                     photoUrl={author.imageUrl}
                     caption={`${author.booksOwned} ${author.booksOwned === 1 ? 'book' : 'books'} owned`}
-                    dimmed={isDisliked}
+                    dimmed
                     action={
                       <button
-                        onClick={() => isDisliked ? unDislikeAuthor(author.id) : dislikeAuthor(author.id)}
+                        onClick={() => unDislikeAuthor(author.id)}
                         className="inline-flex items-center gap-1.5 transition-colors hover:text-[#9C5B3F]"
                         style={{ fontFamily: 'var(--font-space-mono), monospace', fontSize: '11px', letterSpacing: '0.4px', color: '#A39B8B' }}
                       >
-                        {isDisliked ? <><Eye className="w-3 h-3" /> show</> : <><EyeOff className="w-3 h-3" /> hide</>}
+                        <Eye className="w-3 h-3" /> show
                       </button>
                     }
                   />
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
