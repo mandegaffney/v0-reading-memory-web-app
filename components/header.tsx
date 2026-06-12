@@ -63,7 +63,7 @@ export function Header() {
             {/* Add a Book — all screen sizes */}
             <button
               onClick={() => setAddBookOpen(true)}
-              className="inline-flex items-center justify-center leading-none
+              className="inline-flex items-center justify-center leading-none rounded-md
                          px-3.5 py-2 sm:px-4 sm:py-2
                          bg-foreground text-background
                          text-[9px] sm:text-[10px] uppercase tracking-[0.16em] font-medium

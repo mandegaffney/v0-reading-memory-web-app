@@ -77,7 +77,7 @@ export default function BookPage({ params }: { params: Promise<{ id: string }> }
         <div className="flex flex-col md:flex-row gap-8 md:gap-12">
           {/* Cover */}
           <div className="relative w-48 md:w-64 shrink-0">
-            <div className="relative aspect-[2/3] bg-muted rounded-sm overflow-hidden shadow-lg">
+            <div className="relative aspect-[2/3] bg-muted rounded-sm overflow-hidden shadow-[0_16px_34px_-16px_rgba(30,28,22,0.45)]">
               <Image
                 src={book.coverUrl}
                 alt={`Cover of ${book.title}`}
@@ -142,11 +142,11 @@ export default function BookPage({ params }: { params: Promise<{ id: string }> }
 
             {/* Duplicate / owned warning — shown before any purchase attempt */}
             {(book.isOwned || showPurchaseWarning) && (
-              <div className="mt-6 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-sm p-4">
-                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="mt-6 flex items-start gap-3 bg-warning/10 border border-warning/30 rounded-sm p-4">
+                <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-amber-800">You already own this book</p>
-                  <p className="text-sm text-amber-700 mt-1">
+                  <p className="text-sm font-medium text-foreground">You already own this book</p>
+                  <p className="text-sm text-muted-foreground mt-1">
                     This hardcover is already in your library. No need to purchase again.
                   </p>
                 </div>

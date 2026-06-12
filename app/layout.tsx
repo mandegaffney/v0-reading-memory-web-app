@@ -1,26 +1,9 @@
 import type { Metadata, Viewport } from 'next'
-import { DM_Sans, Cormorant_Garamond, Permanent_Marker, Instrument_Serif, Hanken_Grotesk, Space_Mono } from 'next/font/google'
+import { Permanent_Marker, Instrument_Serif, Hanken_Grotesk, Space_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { PreferencesProvider } from '@/lib/preferences'
 import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
-
-// Body text: clean, understated — lets the serif do the talking
-const dmSans = DM_Sans({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600'],
-  variable: '--font-dm-sans',
-  display: 'swap',
-});
-
-// Display / headings: high-contrast, editorial, slightly dramatic
-const cormorant = Cormorant_Garamond({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'],
-  style: ['normal', 'italic'],
-  variable: '--font-cormorant',
-  display: 'swap',
-});
 
 // Logo wordmark only — applied exclusively to "The Stack" in the header
 const permanentMarker = Permanent_Marker({
@@ -70,14 +53,14 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#f5f1eb',
+  themeColor: '#FBF8F0',
 }
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${dmSans.variable} ${cormorant.variable} ${permanentMarker.variable} ${instrumentSerif.variable} ${hankenGrotesk.variable} ${spaceMono.variable} bg-background`}>
+    <html lang="en" className={`${permanentMarker.variable} ${instrumentSerif.variable} ${hankenGrotesk.variable} ${spaceMono.variable} bg-background`}>
       <body className="font-sans antialiased min-h-screen">
         <PreferencesProvider>
           {children}
