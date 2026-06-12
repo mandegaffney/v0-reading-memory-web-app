@@ -44,7 +44,7 @@ export default function HomePage() {
   const {
     dislikedBookIds, dislikedAuthorIds,
     importedBooks, importedAuthorNames, importedFavoriteAuthors,
-    hiddenBooks, hiddenAuthors, hideBook, hideAuthor,
+    hiddenBooks, hiddenAuthors, hideBook, hideAuthor, addBook,
     isLoading, loadError,
   } = usePreferences();
 
@@ -107,7 +107,11 @@ export default function HomePage() {
   // ── "Your stack, in order" — real library data, mapped to the editorial index ──
   const stackBooks = useMemo<StackBook[]>(() => {
     if (hasImport) {
-      return importedBooks.map(b => ({ title: b.title, author: b.author, status: 'finished' as const }));
+      return importedBooks.map(b => ({
+        title:  b.title,
+        author: b.author,
+        status: (b.readingStatus ?? 'to-read') === 'to-read' ? 'want' : (b.readingStatus as 'reading' | 'finished'),
+      }));
     }
     return ownedBooks.map(b => ({ title: b.title, author: b.authorName, status: 'finished' as const }));
   }, [hasImport, importedBooks, ownedBooks]);
@@ -118,7 +122,10 @@ export default function HomePage() {
   );
 
   const visibleStackBooks = filteredStackBooks.slice(0, 10);
-  const pileBooks = stackBooks.slice(0, 3);
+  const pileBooks = useMemo(() => {
+    const reading = stackBooks.filter(b => b.status === 'reading');
+    return (reading.length > 0 ? reading : stackBooks).slice(0, 3);
+  }, [stackBooks]);
 
   // ── Early returns after all hooks ─────────────────────────────────────────
   if (isLoading) {
@@ -150,6 +157,19 @@ export default function HomePage() {
       cancel: { label: 'Cancel', onClick: () => {} },
       duration: 6000,
     });
+  }
+
+  async function addToStack(title: string, author: string) {
+    try {
+      await addBook({
+        title, author,
+        genre: '', dateOrdered: '', unitPrice: '', totalAmount: '', orderStatus: '', orderId: '',
+        readingStatus: 'to-read',
+      });
+      toast.success(`Added "${title.length > 40 ? title.slice(0, 40) + '…' : title}" to your stack — want to read.`);
+    } catch {
+      toast.error('Failed to add to your stack. Please try again.');
+    }
   }
 
   function confirmHideAuthor(name: string) {
@@ -188,91 +208,180 @@ export default function HomePage() {
     <div className="bg-[#FBF8F0] text-[#2B2926]" style={{ fontFamily: 'var(--font-hanken), sans-serif' }}>
       <Header />
 
-      {/* ════════════ HERO — scattered editorial grid ════════════ */}
-      <div className="max-w-[1280px] mx-auto px-6 md:px-12 pt-7 pb-14 md:pb-16 grid grid-cols-1 md:grid-cols-12 gap-x-6 gap-y-7 md:gap-y-6">
+      {/* ════════════ HERO — scattered editorial composition ════════════ */}
+      <div className="relative max-w-[1280px] mx-auto px-6 md:px-12 pt-6 md:pt-9 pb-10 md:pb-16 flex flex-col md:min-h-[760px] lg:min-h-[900px]">
 
-        {/* kickers */}
-        <div
-          className="md:col-span-12 md:row-start-1 flex justify-between items-baseline text-[12px] md:text-[12.5px] tracking-[0.5px]"
-          style={{ fontFamily: 'var(--font-space-mono), monospace' }}
-        >
-          <span style={{ color: '#9C5B3F' }}>(01) — reading memory</span>
-          <span style={{ color: '#A39B8B' }}>(est. 2026)</span>
-        </div>
-
-        {/* headline — roman */}
-        <h1
-          className="md:col-span-8 md:row-start-2 m-0 font-normal leading-[0.96] tracking-[-0.01em] text-balance"
-          style={{ fontFamily: 'var(--font-instrument), serif', fontSize: 'clamp(40px, 7.5vw, 92px)' }}
-        >
-          Everything you&rsquo;ve read,
-        </h1>
-
-        {/* image placeholder */}
-        <div
-          className="md:col-span-4 md:row-start-2 md:row-span-2 min-h-[220px] md:min-h-[320px] rounded-[4px] flex items-end justify-between p-3.5"
-          style={{ backgroundImage: 'repeating-linear-gradient(135deg, #D8C0B0 0 9px, #CDB2A0 9px 18px)' }}
-        >
-          <span className="text-[10.5px]" style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#7a5c4d' }}>
-            [ a reading nook ]
-          </span>
-          <span className="text-[10.5px]" style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#7a5c4d' }}>
-            4:5
-          </span>
-        </div>
-
-        {/* headline — italic */}
-        <h1
-          className="md:col-span-8 md:row-start-3 m-0 italic font-normal leading-[0.92] tracking-[-0.015em] text-balance"
-          style={{ fontFamily: 'var(--font-instrument), serif', fontSize: 'clamp(48px, 9vw, 110px)' }}
-        >
-          stays with <span style={{ color: '#9C5B3F' }}>you.</span>
-        </h1>
-
-        {/* body note — left */}
-        <p
-          className="md:col-span-4 md:row-start-4 self-end italic m-0"
-          style={{ fontFamily: 'var(--font-instrument), serif', fontSize: '23px', lineHeight: 1.3, color: '#5F594E' }}
-        >
-          A quiet record of a reading life — what you finished, and what&rsquo;s next.
-        </p>
-
-        {/* body note — right */}
-        <p
-          className="md:col-span-4 md:col-start-9 md:row-start-4 self-end m-0 text-[14.5px] leading-[1.6]"
-          style={{ color: '#5F594E' }}
-        >
-          <span style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#9C5B3F', fontSize: '12px' }}>
-            (1)&nbsp;
-          </span>
-          Track what you&rsquo;re reading, remember what you finished, and keep the ones you mean to get to.
-          Search by title or author — or say it out loud.
-        </p>
-
-        {/* CTA row */}
-        <div className="md:col-span-6 md:row-start-5 flex items-center gap-5 mt-2 md:mt-0">
-          <button
-            onClick={() => setAddBookOpen(true)}
-            className="m-0 border-0 bg-transparent p-0 cursor-pointer pb-[3px] border-b-[1.5px] border-[#2B2926] transition-colors hover:text-[#9C5B3F] hover:border-[#9C5B3F]"
-            style={{ fontFamily: 'var(--font-instrument), serif', fontSize: '28px', color: 'inherit' }}
-          >
-            Add a book&nbsp;↗
-          </button>
-          <Link
-            href="/library"
-            className="text-[12px] transition-colors hover:text-[#9C5B3F]"
-            style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#A39B8B' }}
-          >
-            or browse&nbsp;→
-          </Link>
-        </div>
+        {/* kicker — top-left on desktop, first in flow on mobile */}
         <span
-          className="hidden md:flex md:col-span-2 md:col-start-11 md:row-start-5 justify-self-end self-end text-[12px]"
+          className="order-1 mb-6 md:mb-0 md:absolute md:left-12 md:top-9 text-[12.5px] tracking-[0.5px]"
+          style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#9C5B3F' }}
+        >
+          (01) — reading memory
+        </span>
+
+        {/* headline — big, anchored bottom-left on desktop */}
+        <h1
+          className="order-2 md:order-none md:absolute md:left-11 md:bottom-14 m-0 font-normal tracking-[-0.025em] leading-[0.9] md:leading-[0.85] text-[52px] sm:text-[64px] md:text-[120px] lg:text-[150px]"
+          style={{ fontFamily: 'var(--font-instrument), Georgia, serif' }}
+        >
+          Everything<br />you&rsquo;ve read,<br />
+          <span className="italic">stays with <span style={{ color: '#9C5B3F' }}>you.</span></span>
+        </h1>
+
+        {/* copy block — upper-right on desktop, last in flow on mobile */}
+        <div className="order-3 mt-8 md:mt-0 md:absolute md:right-12 md:top-20 md:w-[440px] lg:w-[600px]">
+          <div className="mb-4 text-[13px]" style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#9C5B3F' }}>
+            (1)
+          </div>
+          <p
+            className="m-0 mb-6 leading-[1.3]"
+            style={{ fontFamily: 'var(--font-instrument), serif', fontSize: 'clamp(25px, 4vw, 34px)', color: '#2B2926' }}
+          >
+            A quiet record of a reading life — what you finished, and what&rsquo;s next.
+          </p>
+          <p className="m-0 mb-8 text-[17px] leading-[1.6]" style={{ color: '#5F594E' }}>
+            Track what you&rsquo;re reading, remember what you finished, and keep the ones you mean to get to — by title, author, or just by saying it out loud.
+          </p>
+          <div className="flex items-center gap-5">
+            <button
+              onClick={() => setAddBookOpen(true)}
+              className="whitespace-nowrap m-0 border-0 bg-transparent p-0 cursor-pointer pb-[3px] border-b-[1.5px] border-[#2B2926] transition-colors hover:text-[#9C5B3F] hover:border-[#9C5B3F]"
+              style={{ fontFamily: 'var(--font-instrument), serif', fontSize: '28px', color: 'inherit' }}
+            >
+              Add a book&nbsp;↗
+            </button>
+            <Link
+              href="/library"
+              className="whitespace-nowrap text-[12px] transition-colors hover:text-[#9C5B3F]"
+              style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#A39B8B' }}
+            >
+              or browse&nbsp;→
+            </Link>
+          </div>
+        </div>
+
+        {/* est. marker — bottom-right on desktop, hidden on mobile */}
+        <span
+          className="hidden md:block md:absolute md:right-12 md:bottom-[60px] text-[12.5px] tracking-[0.5px]"
           style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#A39B8B' }}
         >
-          (scroll&nbsp;↓)
+          (est. 2026)
         </span>
       </div>
+
+      {/* ════════════ BOOKS YOU MIGHT LOVE ════════════ */}
+      <div className="max-w-[1280px] mx-auto px-6 md:px-12 pt-12 md:pt-16 pb-2">
+        <div className="flex items-baseline justify-between gap-6 mb-1.5">
+          <span
+            className="text-[12.5px] tracking-[0.5px]"
+            style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#9C5B3F' }}
+          >
+            (02) — for you
+          </span>
+          {updatedAt && (
+            <span
+              className="text-[12px] tracking-[0.5px] whitespace-nowrap"
+              style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#A39B8B' }}
+            >
+              updated {updatedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toLowerCase()}
+            </span>
+          )}
+        </div>
+        <h2
+          className="m-0 mb-1.5 font-normal leading-[0.98] tracking-[-0.01em] text-balance"
+          style={{ fontFamily: 'var(--font-instrument), serif', fontSize: 'clamp(36px, 5.5vw, 56px)' }}
+        >
+          Books you might <span className="italic" style={{ color: '#9C5B3F' }}>love</span>
+        </h2>
+        <p
+          className="m-0 mb-9 italic"
+          style={{ fontFamily: 'var(--font-instrument), serif', fontSize: '21px', color: '#5F594E' }}
+        >
+          New arrivals matched to your reading taste.
+        </p>
+
+        {isArrivalsLoading ? (
+          <div className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-4 gap-x-5 md:gap-x-[30px] gap-y-10 md:gap-y-[30px]">
+            {Array.from({ length: 4 }).map((_, i) => <DiscoveryCardSkeleton key={i} />)}
+          </div>
+        ) : arrivalsError ? (
+          <EmptyState title="Couldn't load new arrivals" description={arrivalsError} />
+        ) : arrivals.length > 0 ? (
+          <div className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-4 gap-x-5 md:gap-x-[30px] gap-y-10 md:gap-y-[30px] pb-14">
+            {arrivals.slice(0, 4).map((book, i) => (
+              <DiscoveryCard
+                key={book.key}
+                book={book}
+                index={i}
+                badge="New This Week"
+                dismissLabel="(never show me this again)"
+                onHide={() => confirmHideBook(book.title, null, hideBook)}
+                onWant={() => addToStack(book.title, book.authorName)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="pb-14">
+            <EmptyState
+              title="Check back soon"
+              description="We'll match new Ladybird arrivals to your taste as they come in."
+            />
+          </div>
+        )}
+      </div>
+
+      {/* ════════════ PRE-ORDERS ════════════ */}
+      {(isPreOrdersLoading || preOrders.length > 0) && (
+        <div className="max-w-[1280px] mx-auto px-6 md:px-12 pt-2 pb-2">
+          <div className="flex items-baseline justify-between gap-6 mb-1.5">
+            <span
+              className="text-[12.5px] tracking-[0.5px]"
+              style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#9C5B3F' }}
+            >
+              (03) — coming soon
+            </span>
+            <span
+              className="text-[12px] tracking-[0.5px] whitespace-nowrap"
+              style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#A39B8B' }}
+            >
+              reserve at ladybird books
+            </span>
+          </div>
+          <h2
+            className="m-0 mb-1.5 font-normal leading-[0.98] tracking-[-0.01em] text-balance"
+            style={{ fontFamily: 'var(--font-instrument), serif', fontSize: 'clamp(36px, 5.5vw, 56px)' }}
+          >
+            Pre-orders from authors <span className="italic">you read</span>
+          </h2>
+          <p
+            className="m-0 mb-9 italic"
+            style={{ fontFamily: 'var(--font-instrument), serif', fontSize: '21px', color: '#5F594E' }}
+          >
+            Upcoming titles from names already on your shelf.
+          </p>
+
+          {isPreOrdersLoading ? (
+            <div className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-4 gap-x-5 md:gap-x-[30px] gap-y-10 md:gap-y-[30px] pb-14">
+              {Array.from({ length: 4 }).map((_, i) => <DiscoveryCardSkeleton key={i} />)}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-4 gap-x-5 md:gap-x-[30px] gap-y-10 md:gap-y-[30px] pb-14">
+              {preOrders.slice(0, 4).map((book, i) => (
+                <DiscoveryCard
+                  key={book.key}
+                  book={book}
+                  index={i}
+                  badge="PRE-ORDER"
+                  preOrder
+                  dismissLabel="(not interested)"
+                  onHide={() => confirmHideBook(book.title, null, hideBook)}
+                  onWant={() => addToStack(book.title, book.authorName)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ════════════ YOUR STACK — editorial index + cover pile ════════════ */}
       <div className="max-w-[1280px] mx-auto px-6 md:px-12 pt-10 md:pt-20 pb-10 grid grid-cols-1 md:grid-cols-[1.55fr_1fr] gap-12 md:gap-16">
@@ -284,7 +393,7 @@ export default function HomePage() {
               className="text-[12.5px] tracking-[0.5px]"
               style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#9C5B3F' }}
             >
-              (02) — on the shelf
+              (04) — on the shelf
             </span>
             <div className="flex gap-4 text-[13px]" style={{ fontFamily: 'var(--font-space-mono), monospace' }}>
               {FILTERS.map(f => (
@@ -371,8 +480,8 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* organic cover pile */}
-        <div className="relative min-h-[260px] md:min-h-[460px]">
+        {/* organic cover pile — hidden on mobile, per the editorial layout */}
+        <div className="hidden md:block relative min-h-[460px]">
           <span
             className="text-[12.5px] tracking-[0.5px]"
             style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#A39B8B' }}
@@ -503,80 +612,6 @@ export default function HomePage() {
           )}
         </Section>
 
-        {/* ── Books You Might Like ──────────────────────────── */}
-        <Section
-          title="Books You Might Like"
-          subtitle={
-            updatedAt
-              ? `Updated ${updatedAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} — new arrivals matched to your reading taste`
-              : 'New arrivals matched to your reading taste — buy at Ladybird Books'
-          }
-          className="border-t"
-        >
-          {isArrivalsLoading ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-10">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className={i >= 4 ? 'hidden md:block' : ''}>
-                  <DiscoveryCardSkeleton />
-                </div>
-              ))}
-            </div>
-          ) : arrivalsError ? (
-            <EmptyState
-              title="Couldn't load new arrivals"
-              description={arrivalsError}
-            />
-          ) : arrivals.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-10">
-              {arrivals.slice(0, 8).map((book, i) => (
-                <div key={book.key} className={i >= 4 ? 'hidden md:block' : ''}>
-                  <DiscoveryCard
-                    book={book}
-                    badge="New This Week"
-                    onHide={() => confirmHideBook(book.title, null, hideBook)}
-                  />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              title="Check back soon"
-              description="We'll match new Ladybird arrivals to your taste as they come in."
-            />
-          )}
-        </Section>
-
-        {/* ── Pre-Orders ────────────────────────────────────── */}
-        {(isPreOrdersLoading || preOrders.length > 0) && (
-          <Section
-            title="Pre-Orders from Authors You Read"
-            subtitle="Upcoming titles — reserve yours at Ladybird Books"
-            className="border-t"
-          >
-            {isPreOrdersLoading ? (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-10">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className={i >= 4 ? 'hidden md:block' : ''}>
-                    <DiscoveryCardSkeleton />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-10">
-                {preOrders.slice(0, 8).map((book, i) => (
-                  <div key={book.key} className={i >= 4 ? 'hidden md:block' : ''}>
-                    <DiscoveryCard
-                      book={book}
-                      preOrder
-                      onHide={() => confirmHideBook(book.title, null, hideBook)}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </Section>
-        )}
-
       </main>
 
       {/* ════════════ STATS + FOOTER — dark, oversized brand ════════════ */}
@@ -586,7 +621,7 @@ export default function HomePage() {
             className="text-[12.5px] tracking-[0.5px]"
             style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#D98F6B' }}
           >
-            (03) — this year
+            (05) — this year
           </span>
           <div
             className="mt-6 leading-[1.12] tracking-[-0.01em]"

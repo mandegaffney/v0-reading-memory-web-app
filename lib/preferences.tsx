@@ -2,12 +2,12 @@
 
 import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
 
-// ── Constants ─────────────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 /** Minimum books by the same author required to appear in Favorite Authors. */
 export const MIN_BOOKS_FOR_FAVORITE_AUTHOR = 2;
 
-// ── Types ─────────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 export type ReadingStatus = 'to-read' | 'reading' | 'finished';
 
@@ -56,7 +56,7 @@ interface Preferences {
   isBookDisliked:    (id: string) => boolean;
   isAuthorDisliked:  (id: string) => boolean;
 
-  // ── API-backed library state ──────────────────────────────────────────────────
+  // ── API-backed library state ──────────────────────────────────────────────
   /** True while the initial GET /api/library + GET /api/authors fetch is in flight. */
   isLoading:   boolean;
   /** Non-null if the initial fetch fails entirely. */
@@ -96,7 +96,7 @@ interface Preferences {
    */
   updateReadingStatus: (id: string, status: ReadingStatus) => Promise<void>;
 
-  // ── Recommendation suppression (Turso-backed) ────────────────────────
+  // ── Recommendation suppression (Turso-backed) ─────────────────────────────
   hiddenBooks:   HiddenBook[];
   hiddenAuthors: HiddenAuthor[];
   hideBook:      (title: string, isbn?: string | null) => Promise<void>;
@@ -107,11 +107,11 @@ interface Preferences {
   isBookImported: (title: string) => boolean;
 }
 
-// ── Context ─────────────────────────────────────────────────────────────────────────
+// ── Context ───────────────────────────────────────────────────────────────────
 
 const PreferencesContext = createContext<Preferences | null>(null);
 
-// ── localStorage for disliked IDs only ───────────────────────────────────────────────
+// ── localStorage for disliked IDs only ───────────────────────────────────────
 
 const STORAGE_KEY = 'reading-memory-prefs';
 
@@ -131,7 +131,7 @@ function loadStored(): StoredPrefs {
   }
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function normalizeTitle(t: string) {
   return t.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -142,11 +142,11 @@ function extractAuthorNames(books: ImportedBook[]): string[] {
   return [...new Set(books.map(b => b.author).filter(Boolean))];
 }
 
-// ── Provider ────────────────────────────────────────────────────────────────────────
+// ── Provider ──────────────────────────────────────────────────────────────────
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
 
-  // ── Persisted dislike lists ─────────────────────────────────────────────────
+  // ── Persisted dislike lists ────────────────────────────────────────────────
   const [dislikedBookIds,   setDislikedBookIds]   = useState<string[]>([]);
   const [dislikedAuthorIds, setDislikedAuthorIds] = useState<string[]>([]);
   const isInitialMount = useRef(true);
@@ -171,14 +171,14 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const isBookDisliked  = (id: string) => dislikedBookIds.includes(id);
   const isAuthorDisliked = (id: string) => dislikedAuthorIds.includes(id);
 
-  // ── API-backed library state ────────────────────────────────────────────────────
+  // ── API-backed library state ───────────────────────────────────────────────
   const [importedBooks,           setImportedBooks]           = useState<ImportedBook[]>([]);
   const [importedAuthorNames,     setImportedAuthorNames]     = useState<string[]>([]);
   const [importedFavoriteAuthors, setImportedFavoriteAuthors] = useState<ImportedFavoriteAuthor[]>([]);
   const [isLoading,  setIsLoading]  = useState(true);
   const [loadError,  setLoadError]  = useState<string | null>(null);
 
-  // ── Hidden state (Turso-backed) ───────────────────────────────────────────────────
+  // ── Hidden state (Turso-backed) ──────────────────────────────────────────
   const [hiddenBooks,   setHiddenBooks]   = useState<HiddenBook[]>([]);
   const [hiddenAuthors, setHiddenAuthors] = useState<HiddenAuthor[]>([]);
 
@@ -227,7 +227,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     hydrateFromAPI().finally(() => setIsLoading(false));
   }, [hydrateFromAPI]);
 
-  // ── Mutations ─────────────────────────────────────────────────────────────
+  // ── Mutations ──────────────────────────────────────────────────────────────
 
   /**
    * POST /api/import — bulk-replace CSV books then re-hydrate state.
@@ -307,7 +307,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     setImportedBooks(prev => prev.map(b => b.id === id ? { ...b, readingStatus: status } : b));
   };
 
-  // ── Recommendation suppression ───────────────────────────────────────────────
+  // ── Recommendation suppression ────────────────────────────────────────────
 
   async function hideBook(title: string, isbn?: string | null): Promise<void> {
     const res = await fetch('/api/hidden/books', {
@@ -348,7 +348,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const isBookImported = (title: string) =>
     importedBooks.some(b => normalizeTitle(b.title) === normalizeTitle(title));
 
-  // ── Context value ──────────────────────────────────────────────────────────────
+  // ── Context value ──────────────────────────────────────────────────────────
 
   return (
     <PreferencesContext.Provider value={{
