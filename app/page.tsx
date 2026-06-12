@@ -44,7 +44,7 @@ export default function HomePage() {
   const {
     dislikedBookIds, dislikedAuthorIds,
     importedBooks, importedAuthorNames, importedFavoriteAuthors,
-    hiddenBooks, hiddenAuthors, hideBook, hideAuthor,
+    hiddenBooks, hiddenAuthors, hideBook, hideAuthor, addBook,
     isLoading, loadError,
   } = usePreferences();
 
@@ -157,6 +157,19 @@ export default function HomePage() {
       cancel: { label: 'Cancel', onClick: () => {} },
       duration: 6000,
     });
+  }
+
+  async function addToStack(title: string, author: string) {
+    try {
+      await addBook({
+        title, author,
+        genre: '', dateOrdered: '', unitPrice: '', totalAmount: '', orderStatus: '', orderId: '',
+        readingStatus: 'to-read',
+      });
+      toast.success(`Added "${title.length > 40 ? title.slice(0, 40) + '…' : title}" to your stack — want to read.`);
+    } catch {
+      toast.error('Failed to add to your stack. Please try again.');
+    }
   }
 
   function confirmHideAuthor(name: string) {
@@ -281,6 +294,120 @@ export default function HomePage() {
         </span>
       </div>
 
+      {/* ════════════ BOOKS YOU MIGHT LOVE ════════════ */}
+      <div className="max-w-[1280px] mx-auto px-6 md:px-12 pt-12 md:pt-16 pb-2">
+        <div className="flex items-baseline justify-between gap-6 mb-1.5">
+          <span
+            className="text-[12.5px] tracking-[0.5px]"
+            style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#9C5B3F' }}
+          >
+            (02) — for you
+          </span>
+          {updatedAt && (
+            <span
+              className="text-[12px] tracking-[0.5px] whitespace-nowrap"
+              style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#A39B8B' }}
+            >
+              updated {updatedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toLowerCase()}
+            </span>
+          )}
+        </div>
+        <h2
+          className="m-0 mb-1.5 font-normal leading-[0.98] tracking-[-0.01em] text-balance"
+          style={{ fontFamily: 'var(--font-instrument), serif', fontSize: 'clamp(36px, 5.5vw, 56px)' }}
+        >
+          Books you might <span className="italic" style={{ color: '#9C5B3F' }}>love</span>
+        </h2>
+        <p
+          className="m-0 mb-9 italic"
+          style={{ fontFamily: 'var(--font-instrument), serif', fontSize: '21px', color: '#5F594E' }}
+        >
+          New arrivals matched to your reading taste.
+        </p>
+
+        {isArrivalsLoading ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-5 md:gap-x-[30px] gap-y-10 md:gap-y-[30px]">
+            {Array.from({ length: 4 }).map((_, i) => <DiscoveryCardSkeleton key={i} />)}
+          </div>
+        ) : arrivalsError ? (
+          <EmptyState title="Couldn't load new arrivals" description={arrivalsError} />
+        ) : arrivals.length > 0 ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-5 md:gap-x-[30px] gap-y-10 md:gap-y-[30px] pb-14">
+            {arrivals.slice(0, 4).map((book, i) => (
+              <DiscoveryCard
+                key={book.key}
+                book={book}
+                index={i}
+                badge="New This Week"
+                dismissLabel="(never show me this again)"
+                onHide={() => confirmHideBook(book.title, null, hideBook)}
+                onWant={() => addToStack(book.title, book.authorName)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="pb-14">
+            <EmptyState
+              title="Check back soon"
+              description="We'll match new Ladybird arrivals to your taste as they come in."
+            />
+          </div>
+        )}
+      </div>
+
+      {/* ════════════ PRE-ORDERS ════════════ */}
+      {(isPreOrdersLoading || preOrders.length > 0) && (
+        <div className="max-w-[1280px] mx-auto px-6 md:px-12 pt-2 pb-2">
+          <div className="flex items-baseline justify-between gap-6 mb-1.5">
+            <span
+              className="text-[12.5px] tracking-[0.5px]"
+              style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#9C5B3F' }}
+            >
+              (03) — coming soon
+            </span>
+            <span
+              className="text-[12px] tracking-[0.5px] whitespace-nowrap"
+              style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#A39B8B' }}
+            >
+              reserve at ladybird books
+            </span>
+          </div>
+          <h2
+            className="m-0 mb-1.5 font-normal leading-[0.98] tracking-[-0.01em] text-balance"
+            style={{ fontFamily: 'var(--font-instrument), serif', fontSize: 'clamp(36px, 5.5vw, 56px)' }}
+          >
+            Pre-orders from authors <span className="italic">you read</span>
+          </h2>
+          <p
+            className="m-0 mb-9 italic"
+            style={{ fontFamily: 'var(--font-instrument), serif', fontSize: '21px', color: '#5F594E' }}
+          >
+            Upcoming titles from names already on your shelf.
+          </p>
+
+          {isPreOrdersLoading ? (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-5 md:gap-x-[30px] gap-y-10 md:gap-y-[30px] pb-14">
+              {Array.from({ length: 4 }).map((_, i) => <DiscoveryCardSkeleton key={i} />)}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-5 md:gap-x-[30px] gap-y-10 md:gap-y-[30px] pb-14">
+              {preOrders.slice(0, 4).map((book, i) => (
+                <DiscoveryCard
+                  key={book.key}
+                  book={book}
+                  index={i}
+                  badge="PRE-ORDER"
+                  preOrder
+                  dismissLabel="(not interested)"
+                  onHide={() => confirmHideBook(book.title, null, hideBook)}
+                  onWant={() => addToStack(book.title, book.authorName)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ════════════ YOUR STACK — editorial index + cover pile ════════════ */}
       <div className="max-w-[1280px] mx-auto px-6 md:px-12 pt-10 md:pt-20 pb-10 grid grid-cols-1 md:grid-cols-[1.55fr_1fr] gap-12 md:gap-16">
 
@@ -291,7 +418,7 @@ export default function HomePage() {
               className="text-[12.5px] tracking-[0.5px]"
               style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#9C5B3F' }}
             >
-              (02) — on the shelf
+              (04) — on the shelf
             </span>
             <div className="flex gap-4 text-[13px]" style={{ fontFamily: 'var(--font-space-mono), monospace' }}>
               {FILTERS.map(f => (
@@ -510,80 +637,6 @@ export default function HomePage() {
           )}
         </Section>
 
-        {/* ── Books You Might Like ──────────────────────────── */}
-        <Section
-          title="Books You Might Like"
-          subtitle={
-            updatedAt
-              ? `Updated ${updatedAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} — new arrivals matched to your reading taste`
-              : 'New arrivals matched to your reading taste — buy at Ladybird Books'
-          }
-          className="border-t"
-        >
-          {isArrivalsLoading ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-10">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className={i >= 4 ? 'hidden md:block' : ''}>
-                  <DiscoveryCardSkeleton />
-                </div>
-              ))}
-            </div>
-          ) : arrivalsError ? (
-            <EmptyState
-              title="Couldn't load new arrivals"
-              description={arrivalsError}
-            />
-          ) : arrivals.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-10">
-              {arrivals.slice(0, 8).map((book, i) => (
-                <div key={book.key} className={i >= 4 ? 'hidden md:block' : ''}>
-                  <DiscoveryCard
-                    book={book}
-                    badge="New This Week"
-                    onHide={() => confirmHideBook(book.title, null, hideBook)}
-                  />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              title="Check back soon"
-              description="We'll match new Ladybird arrivals to your taste as they come in."
-            />
-          )}
-        </Section>
-
-        {/* ── Pre-Orders ────────────────────────────────────── */}
-        {(isPreOrdersLoading || preOrders.length > 0) && (
-          <Section
-            title="Pre-Orders from Authors You Read"
-            subtitle="Upcoming titles — reserve yours at Ladybird Books"
-            className="border-t"
-          >
-            {isPreOrdersLoading ? (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-10">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className={i >= 4 ? 'hidden md:block' : ''}>
-                    <DiscoveryCardSkeleton />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-10">
-                {preOrders.slice(0, 8).map((book, i) => (
-                  <div key={book.key} className={i >= 4 ? 'hidden md:block' : ''}>
-                    <DiscoveryCard
-                      book={book}
-                      preOrder
-                      onHide={() => confirmHideBook(book.title, null, hideBook)}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </Section>
-        )}
-
       </main>
 
       {/* ════════════ STATS + FOOTER — dark, oversized brand ════════════ */}
@@ -593,7 +646,7 @@ export default function HomePage() {
             className="text-[12.5px] tracking-[0.5px]"
             style={{ fontFamily: 'var(--font-space-mono), monospace', color: '#D98F6B' }}
           >
-            (03) — this year
+            (05) — this year
           </span>
           <div
             className="mt-6 leading-[1.12] tracking-[-0.01em]"
