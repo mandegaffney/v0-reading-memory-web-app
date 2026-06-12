@@ -9,17 +9,20 @@ export const MIN_BOOKS_FOR_FAVORITE_AUTHOR = 2;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+export type ReadingStatus = 'to-read' | 'reading' | 'finished';
+
 export interface ImportedBook {
-  id?:         string;   // present when returned from the API
-  title:       string;
-  author:      string;
-  genre:       string;
-  dateOrdered: string;
-  unitPrice:   string;
-  totalAmount: string;
-  orderStatus: string;
-  orderId:     string;
-  source?:     'csv' | 'manual';
+  id?:            string;   // present when returned from the API
+  title:          string;
+  author:         string;
+  genre:          string;
+  dateOrdered:    string;
+  unitPrice:      string;
+  totalAmount:    string;
+  orderStatus:    string;
+  orderId:        string;
+  source?:        'csv' | 'manual';
+  readingStatus?: ReadingStatus;
 }
 
 /** An author who qualifies for the Favorite Authors list (≥ MIN_BOOKS_FOR_FAVORITE_AUTHOR). */
@@ -87,6 +90,11 @@ interface Preferences {
    * DELETE /api/library/:id — permanently remove a book.
    */
   removeBook: (id: string) => Promise<void>;
+
+  /**
+   * PATCH /api/library/:id — update a book's reading status.
+   */
+  updateReadingStatus: (id: string, status: ReadingStatus) => Promise<void>;
 
   // ── Recommendation suppression (Turso-backed) ─────────────────────────────
   hiddenBooks:   HiddenBook[];
@@ -286,6 +294,19 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     await hydrateFromAPI();
   };
 
+  const updateReadingStatus = async (id: string, status: ReadingStatus): Promise<void> => {
+    const res = await fetch(`/api/library/${id}`, {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ readingStatus: status }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error ?? 'Failed to update reading status.');
+    }
+    setImportedBooks(prev => prev.map(b => b.id === id ? { ...b, readingStatus: status } : b));
+  };
+
   // ── Recommendation suppression ────────────────────────────────────────────
 
   async function hideBook(title: string, isbn?: string | null): Promise<void> {
@@ -336,7 +357,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       isBookDisliked, isAuthorDisliked,
       isLoading, loadError,
       importedBooks, importedAuthorNames, importedFavoriteAuthors,
-      replaceImportedBooks, clearImportedBooks, addBook, removeBook,
+      replaceImportedBooks, clearImportedBooks, addBook, removeBook, updateReadingStatus,
       hiddenBooks, hiddenAuthors, hideBook, unhideBook, hideAuthor, unhideAuthor,
       isBookImported,
     }}>

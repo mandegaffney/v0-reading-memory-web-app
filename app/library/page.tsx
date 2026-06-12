@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/header';
 import { BookCard } from '@/components/book-card';
 import { usePreferences } from '@/lib/preferences';
+import type { ReadingStatus } from '@/lib/preferences';
 import { getOwnedBooks } from '@/lib/data';
 import { ArrowLeft, Search, BookOpen, X, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -14,12 +15,18 @@ function normalizeTitle(t: string): string {
   return t.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+const STATUS_LABELS: Record<ReadingStatus, string> = {
+  'to-read': 'Want to read',
+  reading:   'Reading',
+  finished:  'Finished',
+};
+
 // ── Inner component that reads search params ──────────────────────────────────
 
 function LibraryContent() {
   const searchParams  = useSearchParams();
   const router        = useRouter();
-  const { dislikedBookIds, importedBooks, removeBook } = usePreferences();
+  const { dislikedBookIds, importedBooks, removeBook, updateReadingStatus } = usePreferences();
 
   const authorFromUrl = searchParams.get('author') ?? '';
   const [query, setQuery] = useState(authorFromUrl);
@@ -90,6 +97,16 @@ function LibraryContent() {
       cancel: { label: 'Keep', onClick: () => {} },
       duration: 6000,
     });
+  }
+
+  // ── Reading status ────────────────────────────────────────────────────────
+  async function handleStatusChange(book: { id?: string }, status: ReadingStatus) {
+    if (!book.id) return;
+    try {
+      await updateReadingStatus(book.id, status);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update status.');
+    }
   }
 
   const pageTitle = authorFromUrl
@@ -201,6 +218,7 @@ function LibraryContent() {
                 <tr className="border-b border-border text-left">
                   <th className="py-2.5 pr-4 font-medium text-muted-foreground">Title</th>
                   <th className="py-2.5 pr-4 font-medium text-muted-foreground hidden sm:table-cell">Author</th>
+                  <th className="py-2.5 pr-4 font-medium text-muted-foreground">Status</th>
                   <th className="py-2.5 w-8" />
                 </tr>
               </thead>
@@ -219,6 +237,17 @@ function LibraryContent() {
                       </div>
                     </td>
                     <td className="py-3.5 pr-4 text-muted-foreground hidden sm:table-cell">{book.author || '—'}</td>
+                    <td className="py-3.5 pr-4">
+                      <select
+                        value={book.readingStatus ?? 'to-read'}
+                        onChange={e => handleStatusChange(book, e.target.value as ReadingStatus)}
+                        className="text-xs border border-input rounded-md bg-background px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+                      >
+                        {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                    </td>
                     {/* Delete — always visible on mobile, revealed on hover on desktop */}
                     <td className="py-3.5 text-right">
                       <button

@@ -107,7 +107,11 @@ export default function HomePage() {
   // ── "Your stack, in order" — real library data, mapped to the editorial index ──
   const stackBooks = useMemo<StackBook[]>(() => {
     if (hasImport) {
-      return importedBooks.map(b => ({ title: b.title, author: b.author, status: 'finished' as const }));
+      return importedBooks.map(b => ({
+        title:  b.title,
+        author: b.author,
+        status: (b.readingStatus ?? 'to-read') === 'to-read' ? 'want' : (b.readingStatus as 'reading' | 'finished'),
+      }));
     }
     return ownedBooks.map(b => ({ title: b.title, author: b.authorName, status: 'finished' as const }));
   }, [hasImport, importedBooks, ownedBooks]);
@@ -118,7 +122,10 @@ export default function HomePage() {
   );
 
   const visibleStackBooks = filteredStackBooks.slice(0, 10);
-  const pileBooks = stackBooks.slice(0, 3);
+  const pileBooks = useMemo(() => {
+    const reading = stackBooks.filter(b => b.status === 'reading');
+    return (reading.length > 0 ? reading : stackBooks).slice(0, 3);
+  }, [stackBooks]);
 
   // ── Early returns after all hooks ─────────────────────────────────────────
   if (isLoading) {

@@ -13,7 +13,7 @@ const PORT = Number(process.env.PORT ?? 3001);
 
 app.use(cors({
   origin:  process.env.CORS_ORIGIN ?? 'http://localhost:3000',
-  methods: ['GET', 'POST', 'DELETE'],
+  methods: ['GET', 'POST', 'PATCH', 'DELETE'],
 }));
 app.use(express.json({ limit: '10mb' }));
 

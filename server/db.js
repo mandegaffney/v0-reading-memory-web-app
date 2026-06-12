@@ -84,6 +84,14 @@ async function initSchema() {
       )`,
     },
   ], 'write');
+
+  // Migrate existing "books" tables that predate the reading_status column
+  const { rows: columns } = await client.execute('PRAGMA table_info(books)');
+  if (!columns.some(col => col.name === 'reading_status')) {
+    await client.execute(
+      "ALTER TABLE books ADD COLUMN reading_status TEXT NOT NULL DEFAULT 'to-read'"
+    );
+  }
 }
 
 /**
@@ -155,18 +163,21 @@ async function getFavoriteAuthors() {
   }));
 }
 
+const READING_STATUSES = ['to-read', 'reading', 'finished'];
+
 function bookToApi(row) {
   return {
-    id:          String(row.id),
-    title:       String(row.title),
-    author:      String(row.author),
-    genre:       String(row.genre),
-    dateOrdered: String(row.date_ordered),
-    unitPrice:   String(row.unit_price),
-    totalAmount: String(row.total_amount),
-    orderStatus: String(row.order_status),
-    orderId:     String(row.order_id),
-    source:      String(row.source),
+    id:           String(row.id),
+    title:        String(row.title),
+    author:       String(row.author),
+    genre:        String(row.genre),
+    dateOrdered:  String(row.date_ordered),
+    unitPrice:    String(row.unit_price),
+    totalAmount:  String(row.total_amount),
+    orderStatus:  String(row.order_status),
+    orderId:      String(row.order_id),
+    source:       String(row.source),
+    readingStatus: String(row.reading_status ?? 'to-read'),
   };
 }
 
@@ -182,4 +193,5 @@ module.exports = {
   bookToApi,
   randomUUID,
   MIN_BOOKS_FOR_FAVORITE_AUTHOR,
+  READING_STATUSES,
 };
