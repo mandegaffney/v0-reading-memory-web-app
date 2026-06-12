@@ -9,6 +9,7 @@ import { usePreferences } from '@/lib/preferences';
 import { useAuthorPhotos } from '@/lib/use-author-photos';
 import { authors } from '@/lib/data';
 import { EyeOff, Eye } from 'lucide-react';
+import { toast } from 'sonner';
 
 // Warm striped placeholder tints, cycled by card index — echoes the cover pile on "Your stack".
 const PLACEHOLDER_TINTS: [string, string][] = [
@@ -22,14 +23,31 @@ const PLACEHOLDER_TINTS: [string, string][] = [
 const TILTS = ['-2deg', '1.5deg', '-1deg', '2deg', '1deg', '-1.5deg'];
 
 export default function AuthorsPage() {
-  const { dislikedAuthorIds, dislikeAuthor, unDislikeAuthor, importedBooks, importedFavoriteAuthors } = usePreferences();
+  const { hiddenAuthors, hideAuthor, unhideAuthor, importedBooks, importedFavoriteAuthors } = usePreferences();
   const [showHidden, setShowHidden] = useState(false);
 
   const hasImport       = importedBooks.length > 0;
-  const isHidden        = (id: string) => dislikedAuthorIds.includes(id);
-  const staticFavorites = authors.filter(a => a.isFavorite && !isHidden(a.id));
-  const staticOthers    = authors.filter(a => !a.isFavorite && !isHidden(a.id));
-  const hiddenAuthors   = authors.filter(a => isHidden(a.id));
+  const hiddenNames     = new Set(hiddenAuthors.map(a => a.name.toLowerCase()));
+  const isHidden        = (name: string) => hiddenNames.has(name.toLowerCase());
+  const staticFavorites = authors.filter(a => a.isFavorite && !isHidden(a.name));
+  const staticOthers    = authors.filter(a => !a.isFavorite && !isHidden(a.name));
+  const hiddenStatic    = authors.filter(a => isHidden(a.name));
+
+  async function handleHide(name: string) {
+    try {
+      await hideAuthor(name);
+    } catch {
+      toast.error('Failed to hide author. Try again.');
+    }
+  }
+
+  async function handleUnhide(id: string) {
+    try {
+      await unhideAuthor(id);
+    } catch {
+      toast.error('Failed to restore author. Try again.');
+    }
+  }
 
   // From the qualified favorites, filter out any that overlap with known static authors
   const knownNamesLower        = new Set(authors.map(a => a.name.toLowerCase()));
@@ -82,6 +100,15 @@ export default function AuthorsPage() {
                       photoUrl={importedPhotos.get(author.name) ?? null}
                       isLoading={photosLoading}
                       caption={`${author.bookCount} ${author.bookCount === 1 ? 'book' : 'books'}`}
+                      action={
+                        <button
+                          onClick={() => handleHide(author.name)}
+                          className="inline-flex items-center gap-1.5 transition-colors hover:text-[#9C5B3F]"
+                          style={{ fontFamily: 'var(--font-space-mono), monospace', fontSize: '11px', letterSpacing: '0.4px', color: '#A39B8B' }}
+                        >
+                          <EyeOff className="w-3 h-3" /> hide
+                        </button>
+                      }
                     />
                   ))
                 : null}
@@ -96,7 +123,7 @@ export default function AuthorsPage() {
                   caption={`${author.booksOwned} ${author.booksOwned === 1 ? 'book' : 'books'} owned`}
                   action={
                     <button
-                      onClick={() => dislikeAuthor(author.id)}
+                      onClick={() => handleHide(author.name)}
                       className="inline-flex items-center gap-1.5 transition-colors hover:text-[#9C5B3F]"
                       style={{ fontFamily: 'var(--font-space-mono), monospace', fontSize: '11px', letterSpacing: '0.4px', color: '#A39B8B' }}
                     >
@@ -135,7 +162,7 @@ export default function AuthorsPage() {
                   caption={`${author.booksOwned} ${author.booksOwned === 1 ? 'book' : 'books'} owned`}
                   action={
                     <button
-                      onClick={() => dislikeAuthor(author.id)}
+                      onClick={() => handleHide(author.name)}
                       className="inline-flex items-center gap-1.5 transition-colors hover:text-[#9C5B3F]"
                       style={{ fontFamily: 'var(--font-space-mono), monospace', fontSize: '11px', letterSpacing: '0.4px', color: '#A39B8B' }}
                     >
@@ -161,26 +188,29 @@ export default function AuthorsPage() {
 
             {showHidden && (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 md:gap-x-8 gap-y-12 md:gap-y-14 mt-8">
-                {hiddenAuthors.map((author, i) => (
-                  <AuthorCard
-                    key={author.id}
-                    index={i}
-                    name={author.name}
-                    href={`/author/${author.id}`}
-                    photoUrl={author.imageUrl}
-                    caption={`${author.booksOwned} ${author.booksOwned === 1 ? 'book' : 'books'} owned`}
-                    dimmed
-                    action={
-                      <button
-                        onClick={() => unDislikeAuthor(author.id)}
-                        className="inline-flex items-center gap-1.5 transition-colors hover:text-[#9C5B3F]"
-                        style={{ fontFamily: 'var(--font-space-mono), monospace', fontSize: '11px', letterSpacing: '0.4px', color: '#A39B8B' }}
-                      >
-                        <Eye className="w-3 h-3" /> show
-                      </button>
-                    }
-                  />
-                ))}
+                {hiddenAuthors.map((hidden, i) => {
+                  const known = hiddenStatic.find(a => a.name.toLowerCase() === hidden.name.toLowerCase());
+                  return (
+                    <AuthorCard
+                      key={hidden.id}
+                      index={i}
+                      name={hidden.name}
+                      href={known ? `/author/${known.id}` : '#'}
+                      photoUrl={known?.imageUrl ?? null}
+                      caption={known ? `${known.booksOwned} ${known.booksOwned === 1 ? 'book' : 'books'} owned` : ''}
+                      dimmed
+                      action={
+                        <button
+                          onClick={() => handleUnhide(hidden.id)}
+                          className="inline-flex items-center gap-1.5 transition-colors hover:text-[#9C5B3F]"
+                          style={{ fontFamily: 'var(--font-space-mono), monospace', fontSize: '11px', letterSpacing: '0.4px', color: '#A39B8B' }}
+                        >
+                          <Eye className="w-3 h-3" /> show
+                        </button>
+                      }
+                    />
+                  );
+                })}
               </div>
             )}
           </div>
