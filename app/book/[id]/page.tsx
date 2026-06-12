@@ -6,6 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { use } from 'react';
 import { Header } from '@/components/header';
+import { Footer } from '@/components/footer';
 import { Section, BookGrid } from '@/components/layout';
 import { BookCard } from '@/components/book-card';
 import { usePreferences } from '@/lib/preferences';
@@ -203,11 +204,9 @@ export default function BookPage({ params }: { params: Promise<{ id: string }> }
 
       </main>
 
-      <footer className="border-t border-border mt-16">
-        <div className="max-w-6xl mx-auto px-6 py-8">
-          <p className="text-sm text-muted-foreground">The Stack — Track your hardcover collection</p>
-        </div>
-      </footer>
+      <div className="mt-16">
+        <Footer />
+      </div>
     </div>
   );
 }

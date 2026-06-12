@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Header } from '@/components/header';
+import { Footer } from '@/components/footer';
 import { PageHeader } from '@/components/layout';
 import { usePreferences } from '@/lib/preferences';
 import { ArrowLeft, RotateCcw, BookOpen, User } from 'lucide-react';
@@ -122,11 +123,9 @@ export default function HiddenPage() {
         )}
       </main>
 
-      <footer className="border-t border-border mt-16">
-        <div className="max-w-6xl mx-auto px-6 py-8">
-          <p className="text-sm text-muted-foreground">The Stack — Track your hardcover collection</p>
-        </div>
-      </footer>
+      <div className="mt-16">
+        <Footer />
+      </div>
     </div>
   );
 }
